@@ -1,0 +1,24 @@
+{
+  "name": "gis-data-api",
+  "version": "1.0.0",
+  "description": "API Backend for GIS Project",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jon-toy/gis-data-api.git"
+  },
+  "author": "Jon Toy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jon-toy/gis-data-api/issues"
+  },
+  "homepage": "https://github.com/jon-toy/gis-data-api#readme",
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "express": "^4.16.3",
+    "mongoose": "^5.0.13"
+  }
+}

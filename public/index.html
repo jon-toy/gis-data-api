@@ -1,0 +1,15 @@
+<html>
+<head>
+<title>Shapefile Upload Tool</title>
+</head>
+<body>
+	<p>This page is for uploading an ESRI shapefile to convert it to GeoJSON for use in the Apache County GIS REST API. Zip the shape files: shp, .dbf, and .shx (.prj optional) up and upload that file here.</p>
+	<form class="form-horizontal" role="form" action="/maps" method="post" enctype="multipart/form-data">
+		Zip File: <input id="file" name="file" type="file" />
+		<input type="submit" value="Submit" id="submit" />
+	</form>
+	
+	<p>To retrieve the GeoJSON, visit the URL given.</p>
+	<p>To retrieve a list of all available GeoJSON files, visit /list</p>
+</body>
+</html>
