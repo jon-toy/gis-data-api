@@ -18,7 +18,10 @@
   "homepage": "https://github.com/jon-toy/gis-data-api#readme",
   "dependencies": {
     "body-parser": "^1.18.2",
+    "compression": "^1.7.2",
+    "connect-multiparty": "^2.1.0",
     "express": "^4.16.3",
-    "mongoose": "^5.0.13"
+    "mongoose": "^5.0.13",
+    "superagent": "^3.8.2"
   }
 }

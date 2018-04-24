@@ -1,5 +1,5 @@
 // Convert to a GeoJSON
-var request = require("superagent");
+var superagent_request = require("superagent");
 var fs = require('fs');
 
 exports.convert = (req, res, next) => {	
@@ -11,7 +11,7 @@ exports.convert = (req, res, next) => {
 	var data = req.files.file;
 	var file_name = data.name.replace(".zip", ".json");
 	
-	request
+	superagent_request
 		.post('http://ogre.adc4gis.com/convert')
 		.field('sourceSrs', '')
 		.field('targetSrs', '')

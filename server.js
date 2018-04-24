@@ -1,4 +1,5 @@
 // Import
+const compression = require('compression');
 const express = require('express');
 const bodyParser = require('body-parser');
 const multiparty = require('connect-multiparty');
@@ -14,6 +15,9 @@ app.use(bodyParser.json());
 
 // Multipart post data parser
 app.use(multiparty());
+
+// GZIP Compression
+app.use(compression());
 
 // Allow CORS
 app.use(function(req, res, next) {
