@@ -18,8 +18,29 @@ exports.convert = (req, res, next) => {
 		.attach('upload', data.path)
 		.end(function (er, res) {
 			if (er) return console.error(er)
-		
-			fs.writeFile( "./public/maps/" + file_name, JSON.stringify(res.body), function(err) {
+			
+			var sanitized = {};
+			sanitized.type = res.body.type;
+			sanitized.features = [];
+
+			// Go through each feature and verify that the polygon is properly closed (first coordinate is equal to the last one)
+			for ( var i = 0; i < res.body.features.length; i++ )
+			{
+				var feature = res.body.features[i];
+
+				if ( feature.geometry.coordinates[0][0] != feature.geometry.coordinates[0][feature.geometry.coordinates[0].length - 1] )
+				{
+					console.log("Invalid Parcel: " + feature.properties.PARCEL_NUM);
+					feature.geometry.coordinates[0].push(feature.geometry.coordinates[0][0]);
+				}
+
+				if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
+				if ( feature.properties.PARCEL_NUM.indexOf("INDEX") >= 0 ) continue; // Skip Indexes
+				sanitized.features.push(feature);
+			}
+
+			console.log("Finished parsing. Writing file");
+			fs.writeFile( "./public/maps/" + file_name, JSON.stringify(sanitized), function(err) {
 			if(err) {
 				return console.log(err);
 			}
