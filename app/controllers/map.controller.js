@@ -56,6 +56,15 @@ exports.list = (req, res, next) => {
 	const folder = './public/maps';
 
 	fs.readdir(folder, (err, files) => {
-		res.json({"files": files});
+		var map_files = [];
+
+		for ( var i = 0; i < files.length; i++ )
+		{
+			// Skip the non JSONs
+			if(files[i].indexOf('json') < 0 ) continue;
+
+			map_files.push(files[i]);
+		}
+		res.json({"files": map_files});
 	})
 };
