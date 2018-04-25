@@ -30,7 +30,7 @@ app.use(function(req, res, next) {
 require('./app/routes/map.routes.js')(app);
 
 // Static files
-app.use(express.static('public'));
+app.use(express.static(__dirname + '/public'));
 
 // listen for requests
 app.listen(3001, () => {
