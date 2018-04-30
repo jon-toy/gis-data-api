@@ -31,6 +31,11 @@ function convertToGeoJson(req, res, next, folder_name) {
 			  for ( var i = 0; i < res.body.features.length; i++ )
 			  {
 				  var feature = res.body.features[i];
+
+				  if ( feature.geometry.coordinates.length > 1 )
+				  {
+					feature.geometry.coordinates.splice(1);
+				  }
   
 				  if ( feature.geometry.coordinates[0][0] != feature.geometry.coordinates[0][feature.geometry.coordinates[0].length - 1] )
 				  {
