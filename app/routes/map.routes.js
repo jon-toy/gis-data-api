@@ -1,9 +1,9 @@
 module.exports = (app) => {
     const maps = require('../controllers/map.controller.js');
 
-    // Convert a new Map
-    app.post('/maps', maps.convert);
+    // Convert a new Book
+    app.post('/books', maps.convertBook);
 
-    // Retrieve all Maps
-    app.get('/list', maps.list);
+    // Retrieve all Books
+    app.get('/books', maps.listBook);
 }
