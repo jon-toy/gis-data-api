@@ -43,8 +43,22 @@ function convertToGeoJson(req, res, next, folder_name) {
 					  feature.geometry.coordinates[0].push(feature.geometry.coordinates[0][0]);
 				  }
   
-				  if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
-				  if ( feature.properties.PARCEL_NUM.indexOf("INDEX") >= 0 ) continue; // Skip Indexes
+				  if ( feature.properties.CON_NUMBER != null )
+				  {
+					// Con
+				  }
+				  else if ( feature.properties.DISTRICT != null ) 
+				  {
+					// Fire District
+				  }
+				  else
+				  {
+					// Normal Parcel
+
+					if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
+					if ( feature.properties.PARCEL_NUM.indexOf("INDEX") >= 0 ) continue; // Skip Indexes
+				  }
+
 				  sanitized.features.push(feature);
 			  }
   
