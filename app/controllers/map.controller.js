@@ -1,6 +1,8 @@
 // Convert to a GeoJSON
 var superagent_request = require("superagent");
 var fs = require('fs');
+var redis = require('redis');
+var redis_client = redis.createClient();
 
 exports.convertBook = (req, res, next) => {	
 	return convertToGeoJson(req, res, next, "books");
@@ -60,18 +62,25 @@ function convertToGeoJson(req, res, next, folder_name) {
 				  }
 
 				  sanitized.features.push(feature);
+
+				  // Add to redis cache
+				  if ( feature.properties.PARCEL_NUM != null )
+				  {
+					console.log("Writing " + feature.properties.PARCEL_NUM + " to Redis");
+					redis_client.set(feature.properties.PARCEL_NUM, JSON.stringify(feature));
+				  }
 			  }
   
 			  console.log("Finished parsing. Writing file");
 			  fs.writeFile(__dirname + "/../../public/" + folder_name + "/" + file_name, JSON.stringify(sanitized), function(err) {
 			  if(err) {
 				  return console.log(err);
+
+				  res.json({"message": "The file was saved as " + file_name});
 			  }
 			  
 			  }); 
 		  });
-	
-	  res.json({"message": "The file was saved as " + file_name});
 }
 
 // Get all GeoJSONs
