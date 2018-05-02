@@ -4,6 +4,8 @@ var fs = require('fs');
 var redis = require('redis');
 var redis_client = redis.createClient();
 
+const UPLOAD_PASSWORD = 'apache_county_eggdrop1315';
+
 exports.convertBook = (req, res, next) => {	
 	return convertToGeoJson(req, res, next, "books");
 };
@@ -15,8 +17,11 @@ function convertToGeoJson(req, res, next, folder_name) {
 	  }
 	  
 	  var data = req.files.file;
-	  var file_name = data.name.replace(".zip", ".json");
-	  
+		var file_name = data.name.replace(".zip", ".json");
+		var password = req.body.password;
+		
+		if ( password != UPLOAD_PASSWORD ) return res.json({"message": "Invalid Password"});
+
 	  superagent_request
 		  .post('http://ogre.adc4gis.com/convert')
 		  .field('sourceSrs', '')
