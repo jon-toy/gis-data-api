@@ -84,12 +84,12 @@ function convertToGeoJson(req, res, next, folder_name) {
 				  // Add to redis cache
 				  if ( feature.properties.PARCEL_NUM != null )
 				  {
-					console.log("Writing " + feature.properties.PARCEL_NUM + " to Redis");
-					redis_client.set(feature.properties.PARCEL_NUM, JSON.stringify(feature));
+						//console.log("Writing " + feature.properties.PARCEL_NUM + " to Redis");
+						redis_client.set(feature.properties.PARCEL_NUM, JSON.stringify(feature));
 				  }
 			  }
   
-			  console.log("Finished parsing. Writing file");
+			  console.log("Finished parsing. Writing file " + file_name);
 			  fs.writeFile(__dirname + "/../../public/" + folder_name + "/" + file_name, JSON.stringify(sanitized), function(err) {
 					if(err) {
 						return console.log(err);
