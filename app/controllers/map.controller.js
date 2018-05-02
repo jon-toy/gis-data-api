@@ -73,14 +73,13 @@ function convertToGeoJson(req, res, next, folder_name) {
   
 			  console.log("Finished parsing. Writing file");
 			  fs.writeFile(__dirname + "/../../public/" + folder_name + "/" + file_name, JSON.stringify(sanitized), function(err) {
-			  if(err) {
-				  return console.log(err);
-
-				  res.json({"message": "The file was saved as " + file_name});
-			  }
-			  
-			  }); 
-		  });
+					if(err) {
+						return console.log(err);
+					}
+				}); 
+			});
+			
+			return res.json({"message": "The file was saved as " + file_name});
 }
 
 // Get all GeoJSONs
