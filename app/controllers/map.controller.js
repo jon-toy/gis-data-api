@@ -33,16 +33,22 @@ function convertToGeoJson(req, res, next, folder_name) {
 			  for ( var i = 0; i < res.body.features.length; i++ )
 			  {
 				  var feature = res.body.features[i];
+	
+					// Unclosed Polygons
+				  {
+						var first_lat_lon = feature.geometry.coordinates[0][0];
+						var last_lat_lon = feature.geometry.coordinates[0][feature.geometry.coordinates[0].length - 1];
 
-				  if ( feature.geometry.coordinates.length > 1 )
+						if ( first_lat_lon[0] != last_lat_lon[0] && first_lat_lon[1] != last_lat_lon[1] )
+						{
+							console.log("Unclosed Polygon: " + feature.properties.PARCEL_NUM);
+							feature.geometry.coordinates[0].push(feature.geometry.coordinates[0][0]);
+						}
+					}
+					
+					if ( feature.geometry.coordinates.length > 1 )
 				  {
-					feature.geometry.coordinates.splice(1);
-				  }
-  
-				  if ( feature.geometry.coordinates[0][0] != feature.geometry.coordinates[0][feature.geometry.coordinates[0].length - 1] )
-				  {
-					  console.log("Invalid Parcel: " + feature.properties.PARCEL_NUM);
-					  feature.geometry.coordinates[0].push(feature.geometry.coordinates[0][0]);
+						feature.geometry.coordinates.splice(1);
 					}
 					
 					if ( feature.geometry.type == 'MultiPolygon' )
@@ -54,18 +60,18 @@ function convertToGeoJson(req, res, next, folder_name) {
   
 				  if ( feature.properties.CON_NUMBER != null )
 				  {
-					// Con
+						// Con
 				  }
 				  else if ( feature.properties.DISTRICT != null ) 
 				  {
-					// Fire District
+						// Fire District
 				  }
 				  else
 				  {
-					// Normal Parcel
+						// Normal Parcel
 
-					if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
-					if ( feature.properties.PARCEL_NUM.indexOf("INDEX") >= 0 ) continue; // Skip Indexes
+						if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
+						if ( feature.properties.PARCEL_NUM.indexOf("INDEX") >= 0 ) continue; // Skip Indexes
 				  }
 
 				  sanitized.features.push(feature);
