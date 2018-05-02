@@ -47,7 +47,9 @@ function convertToGeoJson(req, res, next, folder_name) {
 					
 					if ( feature.geometry.type == 'MultiPolygon' )
 					{
+						// Convert a multipolygon into a polygon
 						feature.geometry.type = 'Polygon';
+						feature.geometry.coordinates[0] = feature.geometry.coordinates[0][0];
 					}
   
 				  if ( feature.properties.CON_NUMBER != null )
