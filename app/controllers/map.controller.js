@@ -43,7 +43,12 @@ function convertToGeoJson(req, res, next, folder_name) {
 				  {
 					  console.log("Invalid Parcel: " + feature.properties.PARCEL_NUM);
 					  feature.geometry.coordinates[0].push(feature.geometry.coordinates[0][0]);
-				  }
+					}
+					
+					if ( feature.geometry.type == 'MultiPolygon' )
+					{
+						feature.geometry.type = 'Polygon';
+					}
   
 				  if ( feature.properties.CON_NUMBER != null )
 				  {
