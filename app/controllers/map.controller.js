@@ -61,6 +61,7 @@ function convertToGeoJson(req, res, next, folder_name) {
 						// Convert a multipolygon into a polygon
 						feature.geometry.type = 'Polygon';
 						feature.geometry.coordinates[0] = feature.geometry.coordinates[0][0];
+						console.log("MultiPolygon: "  + feature.properties.PARCEL_NUM);
 					}
   
 				  if ( feature.properties.CON_NUMBER != null )
