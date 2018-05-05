@@ -66,8 +66,8 @@ function reduceDecimal(feature)
 		var reduced = [];
 		if ( lat_lon[0] == null || lat_lon[1] == null ) continue;
 
-		reduced.push(lat_lon[0].toFixed(6));
-		reduced.push(lat_lon[1].toFixed(6));
+		reduced.push(lMath.round(lat_lon[0] * 1e6 ) / 1e6);
+		reduced.push(lMath.round(lat_lon[1] * 1e6 ) / 1e6);
 		feature.geometry.coordinates[0][i] = reduced;
 	}
 	
