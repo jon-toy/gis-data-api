@@ -45,6 +45,10 @@ function sanitizeFeature(feature)
 	{
 		// Fire District
 	}
+	else if ( feature.properties.ZONE != null )
+	{
+		// Zone
+	}
 	else
 	{
 		// Normal Parcel
