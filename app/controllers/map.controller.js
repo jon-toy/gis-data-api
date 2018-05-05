@@ -12,8 +12,6 @@ exports.convertBook = (req, res, next) => {
 
 function sanitizeFeature(feature)
 {
-	feature = reduceDecimal(feature);
-
 	// Unclosed Polygons
 	{
 		var first_lat_lon = feature.geometry.coordinates[0][0];
@@ -55,6 +53,8 @@ function sanitizeFeature(feature)
 		if ( feature.properties.PARCEL_NUM.indexOf("INDEX") >= 0 ) return null; // Skip Indexes
 	}
 
+	feature = reduceDecimal(feature);
+
 	return feature;
 }
 
@@ -64,6 +64,8 @@ function reduceDecimal(feature)
 	{
 		var lat_lon = feature.geometry.coordinates[0][i];
 		var reduced = [];
+		if ( lat_lon[0] == null || lat_lon[1] == null ) continue;
+
 		reduced.push(lat_lon[0].toFixed(6));
 		reduced.push(lat_lon[1].toFixed(6));
 		feature.geometry.coordinates[0][i] = reduced;
