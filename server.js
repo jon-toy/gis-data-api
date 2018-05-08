@@ -8,6 +8,8 @@ var redis_client = redis.createClient();
 var fs = require('fs');
 var jsonfile = require('jsonfile');
 
+const ZONE_BOOK_LIST_KEY_PREFIX = "ZONE_BOOK_LIST_"
+
 // Instantiate
 const app = express();
 
@@ -33,6 +35,7 @@ app.use(function(req, res, next) {
 // Routes for maps
 require('./app/routes/map.routes.js')(app);
 require('./app/routes/parcel.routes.js')(app);
+require('./app/routes/zone.routes.js')(app);
 
 // Static files
 app.use(express.static(__dirname + '/public'));
@@ -47,33 +50,62 @@ app.listen(3001, () => {
 
 function loadCacheOnStartup()
 {
-  const folder = __dirname + "/public/books";
 
-	fs.readdir(folder, (err, files) => {
+  loadCacheZones();
+  loadCacheParcels();
 
-		for ( var i = 0; i < files.length; i++ )
-		{
-      if(files[i].indexOf('json') < 0 ) continue; // Skip non-JSONs
+  function loadCacheZones()
+  {
+    loadZone(1, "Sanders", ["207", "209", "210"]);
+    loadZone(2, "Sanders South", ["205", "206", "208", "211"]);
+    loadZone(3, "St John's North", ["204"]);
+    loadZone(4, "Concho", ["201", "212"]);
+    loadZone(5, "St John's", ["108", "202", "203"]);
+    loadZone(6, "Vernon", ["106", "107"]);
+    loadZone(7, "Springerville/Eagar", ["101", "102", "103", "104", "105"]);
 
-      var file_name = files[i];
-      
-      jsonfile.readFile(folder + "/" + file_name, function(err, obj) {
-        if ( err != null )
-        {
-          console.log(err);
+    function loadZone(num, name, books)
+    {
+      var zone = {};
+      zone.num = num;
+      zone.name = name;
+      zone.books = books;
 
-        }
-        // Load the JSON into Redis
-        for ( var j = 0; j < obj.features.length; j++ ) 
-        {
-          var feature = obj.features[j];
+      var key = ZONE_BOOK_LIST_KEY_PREFIX + zone.num;
+      redis_client.set(key, JSON.stringify(zone));
+    }
+  }
 
-          if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
+  function loadCacheParcels()
+  {
+    const folder = __dirname + "/public/books";
 
-          console.log("Writing " + feature.properties.PARCEL_NUM + " to Redis");
-          redis_client.set(feature.properties.PARCEL_NUM, JSON.stringify(feature));
-        }
-      });
-		}
-	});
+    fs.readdir(folder, (err, files) => {
+
+      for ( var i = 0; i < files.length; i++ )
+      {
+        if(files[i].indexOf('json') < 0 ) continue; // Skip non-JSONs
+
+        var file_name = files[i];
+        
+        jsonfile.readFile(folder + "/" + file_name, function(err, obj) {
+          if ( err != null )
+          {
+            console.log(err);
+
+          }
+          // Load the JSON into Redis
+          for ( var j = 0; j < obj.features.length; j++ ) 
+          {
+            var feature = obj.features[j];
+
+            if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
+
+            console.log("Writing " + feature.properties.PARCEL_NUM + " to Redis");
+            redis_client.set(feature.properties.PARCEL_NUM, JSON.stringify(feature));
+          }
+        });
+      }
+    });
+  }
 }
