@@ -56,13 +56,13 @@ function loadCacheOnStartup()
 
   function loadCacheZones()
   {
-    loadZone(1, "Sanders", ["207", "209", "210"]);
-    loadZone(2, "Sanders South", ["205", "206", "208", "211"]);
-    loadZone(3, "St John's North", ["204"]);
-    loadZone(4, "Concho", ["201", "212"]);
-    loadZone(5, "St John's", ["108", "202", "203"]);
-    loadZone(6, "Vernon", ["106", "107"]);
-    loadZone(7, "Springerville/Eagar", ["101", "102", "103", "104", "105"]);
+    loadZone(1, "Sanders", ["207.json", "209.json", "210.json"]);
+    loadZone(2, "Sanders South", ["205.json", "206.json", "208.json", "211.json"]);
+    loadZone(3, "St John's North", ["204.json"]);
+    loadZone(4, "Concho", ["201.json", "212.json"]);
+    loadZone(5, "St John's", ["108.json", "202.json", "203.json"]);
+    loadZone(6, "Vernon", ["106.json", "107.json"]);
+    loadZone(7, "Springerville/Eagar", ["101.json", "102.json", "103.json", "104.json", "105.json"]);
 
     function loadZone(num, name, books)
     {

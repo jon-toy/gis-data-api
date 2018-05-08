@@ -145,6 +145,11 @@ exports.listBook = (req, res, next) => {
 
 			map_files.push(files[i]);
 		}
-		res.json({"files": map_files});
+
+		var zone = {};
+		zone.num = "ALL";
+		zone.name = "All";
+		zone.books = map_files;
+		res.json(zone);
 	})
 };
