@@ -56,20 +56,23 @@ function loadCacheOnStartup()
 
   function loadCacheZones()
   {
-    loadZone(1, "Sanders", ["207.json", "209.json", "210.json"]);
-    loadZone(2, "Sanders South", ["205.json", "206.json", "208.json", "211.json"]);
-    loadZone(3, "St John's North", ["204.json"]);
-    loadZone(4, "Concho", ["201.json", "212.json"]);
-    loadZone(5, "St John's", ["108.json", "202.json", "203.json"]);
-    loadZone(6, "Vernon", ["106.json", "107.json"]);
-    loadZone(7, "Springerville/Eagar", ["101.json", "102.json", "103.json", "104.json", "105.json"]);
+    loadZone(1, "Sanders", ["207.json", "209.json", "210.json"], 36.038998500000005, -109.52305050000001, 16);
+    loadZone(2, "Sanders South", ["205.json", "206.json", "208.json", "211.json"], 34.951286499999995, -109.44762600000001, 16);
+    loadZone(3, "St John's North", ["204.json"], 34.69213, -109.44836650000002, 16);
+    loadZone(4, "Concho", ["201.json", "212.json"], 34.5180075, -109.69512700000001, 16);
+    loadZone(5, "St John's", ["108.json", "202.json", "203.json"], 34.384599, -109.29469749999998, 16);
+    loadZone(6, "Vernon", ["106.json", "107.json"], 34.2367455, -109.68258000000003, 16);
+    loadZone(7, "Springerville/Eagar", ["101.json", "102.json", "103.json", "104.json", "105.json"], 33.850626500000004, -109.46916299999998, 16);
 
-    function loadZone(num, name, books)
+    function loadZone(num, name, books, starting_lat, starting_lon, starting_zoom)
     {
       var zone = {};
       zone.num = num;
       zone.name = name;
       zone.books = books;
+      zone.starting_lat = starting_lat;
+      zone.starting_lon = starting_lon;
+      zone.starting_zoom = starting_zoom;
 
       var key = ZONE_BOOK_LIST_KEY_PREFIX + zone.num;
       redis_client.set(key, JSON.stringify(zone));
