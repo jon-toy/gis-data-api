@@ -19,3 +19,27 @@ exports.findBooksForZone = (req, res) => {
 		res.send(JSON.parse(result));
 	});
 };
+
+// Find a zone for a given book 
+exports.findZoneForBook = (req, res) => {
+	var book_num = req.params.bookNum;
+	var key = BOOK_ZONE_KEY_PREFIX + book_num;
+
+	redis_client.get(key,function (error, result) {
+		if (error) {
+			console.log(error);
+			throw error;
+		}
+
+		if ( result == null ) 
+		{
+			var error = {};
+			error.error_message = "Zone for Book " + book_num + " Not Found";
+			return res.status(404).send(error);
+		}
+
+		var response = {};
+		response.zone = result;
+		res.send(response);
+	});
+};

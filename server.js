@@ -8,8 +8,6 @@ var redis_client = redis.createClient();
 var fs = require('fs');
 var jsonfile = require('jsonfile');
 
-const ZONE_BOOK_LIST_KEY_PREFIX = "ZONE_BOOK_LIST_"
-
 // Instantiate
 const app = express();
 
@@ -79,6 +77,14 @@ function loadCacheOnStartup()
 
       var key = ZONE_BOOK_LIST_KEY_PREFIX + zone.num;
       redis_client.set(key, JSON.stringify(zone));
+
+      // Load book to zone keys
+      for ( var i = 0; i < books.length; i++ ) 
+      {
+        var book_name = books[i].replace('.json', '');
+        var book_key = BOOK_ZONE_KEY_PREFIX + book_name;
+        redis_client.set(book_key, num);
+      }
     }
   }
 

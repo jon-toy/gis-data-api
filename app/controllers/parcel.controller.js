@@ -13,7 +13,12 @@ exports.findOneParcel = (req, res) => {
 			throw error;
 		}
 
-		if ( result == null ) return res.status(404).send("Parcel " + parcel_num + " Not Found");
+		if ( result == null ) 
+		{	
+			var error = {};
+			error.error_message = "Parcel " + parcel_num + " not found.";
+			return res.status(404).send(error);
+		}
 
 		res.send(JSON.parse(result));
 	});

@@ -1,5 +1,8 @@
 module.exports = function()
 {
+    this.ZONE_BOOK_LIST_KEY_PREFIX = "ZONE_BOOK_LIST_";
+    this.BOOK_ZONE_KEY_PREFIX = "BOOK_ZONE_";
+    
     this.normalizeParcelNumber = function(parcel_num)
     {
         if ( parcel_num == null ) return null;
