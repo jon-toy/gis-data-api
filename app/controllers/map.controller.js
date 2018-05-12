@@ -117,7 +117,7 @@ function convertToGeoJson(req, res, next, folder_name)
 				// Add to redis cache
 				if ( feature.properties.PARCEL_NUM != null )
 				{
-					var key = Utils.normalizeParcelNumber(feature.properties.PARCEL_NUM);
+					var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
 
 					//console.log("Writing " + feature.properties.PARCEL_NUM + " to Redis");
 					redis_client.set(key, JSON.stringify(feature));
