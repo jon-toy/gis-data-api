@@ -1,9 +1,12 @@
+require('../../utils.js')();
+
 var redis = require('redis');
 var redis_client = redis.createClient();
 
 // Find a single parcel with a parcelNum
 exports.findOneParcel = (req, res) => {
 	var parcel_num = req.params.parcelNum;
+	parcel_num = normalizeParcelNumber(parcel_num);
 	redis_client.get(parcel_num,function (error, result) {
 		if (error) {
 			console.log(error);
