@@ -40,6 +40,9 @@ require('./app/routes/zone.routes.js')(app);
 // Static files
 app.use(express.static(__dirname + '/public'));
 
+// Utils
+require('./utils.js')(app);
+
 // Load GeoJSON cache on startup
 loadCacheOnStartup();
 
@@ -104,8 +107,10 @@ function loadCacheOnStartup()
 
             if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
 
-            console.log("Writing " + feature.properties.PARCEL_NUM + " to Redis");
-            redis_client.set(feature.properties.PARCEL_NUM, JSON.stringify(feature));
+            var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
+
+            console.log("Writing " + key + " to Redis");
+            redis_client.set(key, JSON.stringify(feature));
           }
         });
       }
