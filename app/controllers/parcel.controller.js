@@ -23,3 +23,24 @@ exports.findOneParcel = (req, res) => {
 		res.send(JSON.parse(result));
 	});
 };
+
+// Find a single parcel with an account number
+exports.findOneParcelByAccountNumber = (req, res) => {
+	var account_num = req.params.accountNum;
+	account_num = normalizeAccountNumber(account_num);
+	redis_client.get(account_num,function (error, result) {
+		if (error) {
+			console.log(error);
+			throw error;
+		}
+
+		if ( result == null ) 
+		{	
+			var error = {};
+			error.error_message = "Parcel with account number " + account_num + " not found.";
+			return res.status(404).send(error);
+		}
+
+		res.send(JSON.parse(result));
+	});
+};

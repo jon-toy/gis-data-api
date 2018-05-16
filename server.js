@@ -116,7 +116,13 @@ function loadCacheOnStartup()
             var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
 
             console.log("Writing " + key + " to Redis");
-            redis_client.set(key, JSON.stringify(feature));
+            var stringified = JSON.stringify(feature);
+            redis_client.set(key, stringified); // By Parcel Number
+
+            if ( feature.properties.NUMBER != null)
+            {
+              redis_client.set(normalizeAccountNumber(feature.properties.NUMBER), stringified); // By Account Number
+            }
           }
         });
       }

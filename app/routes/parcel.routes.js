@@ -3,4 +3,5 @@ module.exports = (app) => {
 
     // Get a single parcel
     app.get('/parcels/:parcelNum', parcels.findOneParcel);
+    app.get('/accounts/:accountNum', parcels.findOneParcelByAccountNumber);
 }
