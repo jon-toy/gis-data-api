@@ -1,0 +1,13 @@
+<html>
+<head>
+<title>Treasurer Upload Tool</title>
+</head>
+<body>
+	<p>This page is for uploading an exported text file containing information on account balance</p>
+	<form class="form-horizontal" role="form" action="/treasurer/account-balance" method="post" enctype="multipart/form-data">
+		Text file: <input id="file" name="file" type="multipart/form-data" />
+		<br>Password: <input id="password" type="password" name="password"/>
+		<input type="submit" value="Submit" id="submit" />
+	</form>
+</body>
+</html>

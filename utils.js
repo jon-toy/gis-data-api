@@ -3,6 +3,8 @@ module.exports = function()
     this.ZONE_BOOK_LIST_KEY_PREFIX = "ZONE_BOOK_LIST_";
     this.BOOK_ZONE_KEY_PREFIX = "BOOK_ZONE_";
     this.PARCEL_ACCOUNT_NUMBER_PREFIX = "ACCOUNT_NUMBER_";
+    this.TREASURER_BALANCE_DUE_PREFIX = "TREASURER_BALANCE_DUE_";
+    this.BALANCE_DUE_FILENAME = "balance_due_extract.txt";
     
     this.normalizeParcelNumber = function(parcel_num)
     {

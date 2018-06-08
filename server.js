@@ -34,6 +34,7 @@ app.use(function(req, res, next) {
 require('./app/routes/map.routes.js')(app);
 require('./app/routes/parcel.routes.js')(app);
 require('./app/routes/zone.routes.js')(app);
+require('./app/routes/treasurer.routes.js')(app);
 
 // Static files
 app.use(express.static(__dirname + '/public'));
