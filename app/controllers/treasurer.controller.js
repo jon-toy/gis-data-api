@@ -52,7 +52,7 @@ function readBalanceDueIntoMemory(path)
 		account.balance_due = line.substring(312, 321).trim();
 
 		// Set in redis
-		redis_client.set(TREASURER_BALANCE_DUE_PREFIX + account.account_number, balance_due);
+		redis_client.set(TREASURER_BALANCE_DUE_PREFIX + account.account_number, account.balance_due);
 	});
 }
 
