@@ -6,4 +6,7 @@ module.exports = (app) => {
 
     // Retrieve edit history object for a specific account
     app.get('/sheriff/edit-history/:apn', sheriff.getEditHistory);
+
+    // Retrieve list of parcels with an edit history
+    app.get('/sheriff/edit-history-parcels', sheriff.getEditHistoryParcels);
 }

@@ -4,6 +4,8 @@ var fs = require('fs');
 var redis = require('redis');
 var redis_client = redis.createClient();
 
+var edit_history_parcels = [];
+
 const UPLOAD_PASSWORD = 'apache_county_eggdrop1315';
 
 exports.convertEditReport = (req, res, next) => {	
@@ -42,7 +44,7 @@ function parseEditReportCsvFile(req, res, next, folder_name)
 
 exports.readEditHistoryIntoMemory = (path) => {
 	if ( fs.existsSync(path) == false ) return;
-	
+
 	var input = fs.createReadStream(path);
 	readLines(input, (line) => {
 		if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') && line.indexOf('ROAD') && line.indexOf('EDITS') ) return;
@@ -60,6 +62,8 @@ exports.readEditHistoryIntoMemory = (path) => {
 			if ( fields[index] != '\r' ) account.edits.push(fields[index]);
 			index++;
 		}
+
+		edit_history_parcels.push(account.apn);
 
 		// Set in redis
 		redis_client.set(SHERIFF_EDIT_HISTORY_PREFIX + account.apn, JSON.stringify(account));
@@ -108,3 +112,8 @@ exports.getEditHistory = (req, res, next) => {
 		res.send(JSON.parse(result));
 	});
 };
+
+// Get a list of APNs that we have edit history data for
+exports.getEditHistoryParcels = (req, res) => {
+	res.send(edit_history_parcels);
+}
