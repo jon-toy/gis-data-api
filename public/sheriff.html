@@ -1,0 +1,13 @@
+<html>
+<head>
+<title>Sheriff Upload Tool</title>
+</head>
+<body>
+	<p>This page is for uploading a tab delimited file containing edit history</p>
+	<form class="form-horizontal" role="form" action="/sheriff/edit-history" method="post" enctype="multipart/form-data">
+		TSV File: <input id="file" name="file" type="file" />
+		<br>Password: <input id="password" type="password" name="password"/>
+		<input type="submit" value="Submit" id="submit" />
+	</form>
+</body>
+</html>

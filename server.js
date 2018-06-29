@@ -7,6 +7,7 @@ var redis = require('redis');
 var redis_client = redis.createClient();
 var fs = require('fs');
 var jsonfile = require('jsonfile');
+var sheriff = require('./app/controllers/sheriff.controller.js');
 
 // Instantiate
 const app = express();
@@ -35,6 +36,7 @@ require('./app/routes/map.routes.js')(app);
 require('./app/routes/parcel.routes.js')(app);
 require('./app/routes/zone.routes.js')(app);
 require('./app/routes/treasurer.routes.js')(app);
+require('./app/routes/sheriff.routes.js')(app);
 
 // Static files
 app.use(express.static(__dirname + '/public'));
@@ -55,6 +57,7 @@ function loadCacheOnStartup()
 
   loadCacheZones();
   loadCacheParcels();
+  loadCacheSheriffEditHistory();
 
   function loadCacheZones()
   {
@@ -128,5 +131,10 @@ function loadCacheOnStartup()
         });
       }
     });
+  }
+
+  function loadCacheSheriffEditHistory()
+  {
+    sheriff.readEditHistoryIntoMemory(__dirname + "/public/sheriff/" + EDIT_HISTORY_FILENAME);
   }
 }

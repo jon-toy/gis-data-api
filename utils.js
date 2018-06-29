@@ -5,6 +5,8 @@ module.exports = function()
     this.PARCEL_ACCOUNT_NUMBER_PREFIX = "ACCOUNT_NUMBER_";
     this.TREASURER_BALANCE_DUE_PREFIX = "TREASURER_BALANCE_DUE_";
     this.BALANCE_DUE_FILENAME = "balance_due_extract.txt";
+    this.SHERIFF_EDIT_HISTORY_PREFIX = "SHERIFF_EDIT_HISTORY_";
+    this.EDIT_HISTORY_FILENAME = "edit_history.tsv";
     
     this.normalizeParcelNumber = function(parcel_num)
     {
