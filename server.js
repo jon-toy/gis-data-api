@@ -37,6 +37,7 @@ require('./app/routes/parcel.routes.js')(app);
 require('./app/routes/zone.routes.js')(app);
 require('./app/routes/treasurer.routes.js')(app);
 require('./app/routes/sheriff.routes.js')(app);
+require('./app/routes/ruraladdress.routes.js')(app);
 
 // Static files
 app.use(express.static(__dirname + '/public'));
