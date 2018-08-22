@@ -136,6 +136,6 @@ function loadCacheOnStartup()
 
   function loadCacheSheriffEditHistory()
   {
-    sheriff.readEditHistoryIntoMemory(__dirname + "/public/sheriff/" + EDIT_HISTORY_FILENAME);
+    sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress");
   }
 }

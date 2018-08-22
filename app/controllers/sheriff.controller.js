@@ -42,32 +42,36 @@ function parseEditReportCsvFile(req, res, next, folder_name)
 	return res.json({"message": "The file was saved as " + file_name});
 }
 
-exports.readEditHistoryIntoMemory = (path) => {
-	if ( fs.existsSync(path) == false ) return;
-
-	var input = fs.createReadStream(path);
-	readLines(input, (line) => {
-		if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') && line.indexOf('ROAD') && line.indexOf('EDITS') ) return;
-		var account = {}; // Account object to hold the data we're about to read in
-
-		var fields = line.split('\t');
-		if ( fields[0] ) account.apn = fields[0]; else return;
-		if ( fields[1] ) account.situs = fields[1]; else return;
-		if ( fields[2] ) account.road = fields[2]; else return;
+exports.readEditHistoryIntoMemory = (folder) => {
+	if ( fs.existsSync(folder) == false ) return;
+	
+	fs.readdir(folder, (err, files) => {
+		files.forEach(file => {
+			var input = fs.createReadStream(folder + "/" + file);
+			readLines(input, (line) => {
+				if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') && line.indexOf('ROAD') && line.indexOf('EDITS') ) return;
+				var account = {}; // Account object to hold the data we're about to read in
 		
-		account.edits = [];
-		var index = 3;
-		while ( index < fields.length && fields[index] != null && fields[index].length > 0 )
-		{
-			if ( fields[index] != '\r' ) account.edits.push(fields[index]);
-			index++;
-		}
-
-		edit_history_parcels.push(account.apn);
-
-		// Set in redis
-		redis_client.set(SHERIFF_EDIT_HISTORY_PREFIX + account.apn, JSON.stringify(account));
-	});
+				var fields = line.split('\t');
+				if ( fields[0] ) account.apn = fields[0]; else return;
+				if ( fields[1] ) account.situs = fields[1]; else return;
+				if ( fields[2] ) account.road = fields[2]; else return;
+				
+				account.edits = [];
+				var index = 3;
+				while ( index < fields.length && fields[index] != null && fields[index].length > 0 )
+				{
+					if ( fields[index] != '\r' ) account.edits.push(fields[index]);
+					index++;
+				}
+		
+				edit_history_parcels.push(account.apn);
+		
+				// Set in redis
+				redis_client.set(SHERIFF_EDIT_HISTORY_PREFIX + account.apn, JSON.stringify(account));
+			});
+		});
+	  })
 }
 
 function readLines(input, func) {
