@@ -1,4 +1,5 @@
 require('../../utils.js')();
+var sheriff = require('./sheriff.controller.js');
 
 // Convert to a GeoJSON
 var superagent_request = require("superagent");
@@ -28,9 +29,10 @@ exports.putZone = (req, res, next) => {
 };
 
 function handleResponse(req, res, folderName) {
-    if (!req.files.markers || !req.files.markers.name ||
-        !req.files.parcels || !req.files.parcels.name ||
-        !req.files.roads || !req.files.roads.name) {
+    if (!req.files.markers.size > 0 &&
+        !req.files.parcels.size > 0 &&
+        !req.files.roads.size > 0 &&
+        !req.files.history.size > 0) {
 
 		res.status(400).json({error: true, msg: 'No file provided'})
 		return;
@@ -40,9 +42,11 @@ function handleResponse(req, res, folderName) {
 	
 	if ( password != UPLOAD_PASSWORD ) return res.json({"message": "Invalid Password"});
 
-    convertAndWrite(folderName, "markers.json", req.files.markers);
-    convertAndWrite(folderName, "parcels.json", req.files.parcels);
-    convertAndWrite(folderName, "roads.json", req.files.roads);
+    if (req.files.markers.size > 0) convertAndWrite(folderName, "markers.json", req.files.markers);
+    if (req.files.parcels.size > 0) convertAndWrite(folderName, "parcels.json", req.files.parcels);
+    if (req.files.roads.size > 0) convertAndWrite(folderName, "roads.json", req.files.roads);
+
+    if (req.files.history.size > 0) handleEditHistory(folderName, req.files.history);
 
     return res.json({"message": "Writing in directory " + folderName});
 }
@@ -67,5 +71,22 @@ function convertAndWrite(folderName, fileName, data) {
                 return console.log(err);
             }
         }); 
+    });
+}
+
+function handleEditHistory(fileName, file) {
+    var dir = __dirname + "/../../public/ruraladdress/";
+
+    fs.readFile(file.path, function read(err, data) {
+        if (err) {
+            throw err;
+        }
+        fs.writeFile(dir + "/" + fileName + ".tsv", data, function(err) {
+            if(err) {
+                return console.log(err);
+            }
+
+            sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress");
+        });
     });
 }
