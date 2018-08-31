@@ -32,6 +32,7 @@ function handleResponse(req, res, folderName) {
     if (!req.files.markers.size > 0 &&
         !req.files.parcels.size > 0 &&
         !req.files.roads.size > 0 &&
+        !req.files.text.size > 0 &&
         !req.files.history.size > 0) {
 
 		res.status(400).json({error: true, msg: 'No file provided'})
@@ -45,6 +46,7 @@ function handleResponse(req, res, folderName) {
     if (req.files.markers.size > 0) convertAndWrite(folderName, "markers.json", req.files.markers);
     if (req.files.parcels.size > 0) convertAndWrite(folderName, "parcels.json", req.files.parcels);
     if (req.files.roads.size > 0) convertAndWrite(folderName, "roads.json", req.files.roads);
+    if (req.files.text.size > 0) convertAndWrite(folderName, "text.json", req.files.text);
 
     if (req.files.history.size > 0) handleEditHistory(folderName, req.files.history);
 
@@ -81,12 +83,12 @@ function handleEditHistory(fileName, file) {
         if (err) {
             throw err;
         }
-        fs.writeFile(dir + "/" + fileName + ".tsv", data, function(err) {
+        fs.writeFile(dir + "/" + fileName + ".tsv", data, (err) => {
             if(err) {
                 return console.log(err);
             }
 
-            sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress");
+            sheriff.readEditHistoryIntoMemory(dir);;
         });
     });
 }
