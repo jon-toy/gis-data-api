@@ -6,4 +6,7 @@ module.exports = (app) => {
 
     // Overwrite an exsiting zone
     app.put('/rural-addresses/:zoneName', ruralAddresses.putZone);
+
+    // Get a collection of all the edit history for this zone
+    app.get('/rural-addresses/edit-history/:zoneName', ruralAddresses.getZoneEditHistory);
 }

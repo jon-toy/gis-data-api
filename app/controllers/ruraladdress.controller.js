@@ -28,6 +28,16 @@ exports.putZone = (req, res, next) => {
     return handleResponse(req, res, req.params.oneName);
 };
 
+exports.getZoneEditHistory = (req, res, next) => {
+    if (!req.params.zoneName) {
+        res.status(400).json({error: true, msg: 'No Zone Name provided'})
+		return;
+    }
+    redis_client.get(ZONE_EDIT_HISTORY_PREFIX + req.params.zoneName, (err, result) => {
+        res.send(JSON.parse(result));
+    });
+}
+
 function handleResponse(req, res, folderName) {
     if (!req.files.markers.size > 0 &&
         !req.files.parcels.size > 0 &&
@@ -88,7 +98,9 @@ function handleEditHistory(fileName, file) {
                 return console.log(err);
             }
 
-            sheriff.readEditHistoryIntoMemory(dir);;
+            sheriff.readEditHistoryIntoMemory(dir);
+
+            updateZoneCache(fileName, data)
         });
     });
 }

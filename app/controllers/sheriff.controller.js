@@ -47,6 +47,7 @@ exports.readEditHistoryIntoMemory = (folder) => {
 	
 	fs.readdir(folder, (err, files) => {
 		files.forEach(file => {
+			var zone_edit_history_parcels = [];
 			var input = fs.createReadStream(folder + "/" + file);
 			readLines(input, (line) => {
 				if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') && line.indexOf('ROAD') && line.indexOf('EDITS') ) return;
@@ -66,15 +67,26 @@ exports.readEditHistoryIntoMemory = (folder) => {
 				}
 		
 				edit_history_parcels.push(account.apn);
+				zone_edit_history_parcels.push(account);
 		
 				// Set in redis
 				redis_client.set(SHERIFF_EDIT_HISTORY_PREFIX + account.apn, JSON.stringify(account));
+			}, () => {
+
+				// Set a cache object for all edit history by zone
+				if (zone_edit_history_parcels.length <= 0) return;
+
+				console.log("Creating zone object for zone: " + file.replace(".tsv", ""));
+				console.log(zone_edit_history_parcels);
+
+				redis_client.set(ZONE_EDIT_HISTORY_PREFIX + file.replace(".tsv", ""), JSON.stringify(zone_edit_history_parcels));
 			});
+			
 		});
 	  })
 }
 
-function readLines(input, func) {
+function readLines(input, func, end) {
 	var remaining = '';
   
 	input.on('data', function(data) {
@@ -88,11 +100,7 @@ function readLines(input, func) {
 	  }
 	});
   
-	input.on('end', function() {
-	  if (remaining.length > 0) {
-		func(remaining);
-	  }
-	});
+	input.on('end', end);
   }
 
 // Get the Edit History account object for a single parcel number (param apn)
