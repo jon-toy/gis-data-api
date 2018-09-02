@@ -99,8 +99,6 @@ function handleEditHistory(fileName, file) {
             }
 
             sheriff.readEditHistoryIntoMemory(dir);
-
-            updateZoneCache(fileName, data)
         });
     });
 }
