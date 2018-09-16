@@ -57,9 +57,17 @@ exports.readEditHistoryIntoMemory = (folder) => {
 				if ( fields[0] ) account.apn = fields[0]; else return;
 				if ( fields[1] ) account.situs = fields[1]; else return;
 				if ( fields[2] ) account.road = fields[2]; else return;
+				if ( fields[3] ) account.owner = fields[3]; else return;
+				if ( fields[4] ) {
+					if (fields[4] != "NULL")
+						account.remarks = fields[4]; 
+					else
+						account.remarks = "";
+				} else return;
+				
 				
 				account.edits = [];
-				var index = 3;
+				var index = 5;
 				while ( index < fields.length && fields[index] != null && fields[index].length > 0 )
 				{
 					if ( fields[index] != '\r' ) account.edits.push(fields[index]);
