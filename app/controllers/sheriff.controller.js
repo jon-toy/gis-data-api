@@ -59,15 +59,26 @@ exports.readEditHistoryIntoMemory = (folder) => {
 				if ( fields[2] ) account.road = fields[2]; else return;
 				if ( fields[3] ) account.owner = fields[3]; else return;
 				if ( fields[4] ) {
-					if (fields[4] != "NULL") {
-						var remarks = {};
+					if (fields[4] != "NULL")
+						account.remarks = fields[4]; 
+					else
+						account.remarks = "";
+				} else return;
+				
+				
+				account.edits = [];
+				var index = 5;
+				while ( index < fields.length && fields[index] != null && fields[index].length > 0 )
+				{
+					if ( fields[index] != '\r' ) {
+						var edit = {};
 
-						var text = fields[4]; 
+						var text = fields[index]; 
 
 						if (text.length > 10) {
 							// Date string by default is (xx/xx/xx)
 							// Length is 10
-							var dateStringRaw = fields[4].substring(text.length - 8, text.length);
+							var dateStringRaw = fields[index].substring(text.length - 10, text.length);
 
 							var date = dateStringRaw.replace("(", "").replace(")", "");
 
@@ -76,28 +87,19 @@ exports.readEditHistoryIntoMemory = (folder) => {
 							var dateRegex = `[0-9][0-9]\/[0-9][0-9]\/[0-9][0-9]`;
 							var result = date.match(dateRegex);
 							if(result == null) {
-								console.log("Invalid Date: " + date);
+								//console.log("Invalid Date: " + date);
 							}
 							else {
 								// Remove from the text (xx/xx/xx)
 								text = text.replace(dateStringRaw, "");
-								remarks.date = date;
+								edit.date = date;
 							}
 						}
 
-						remarks.text = text;
-						account.remarks = remarks; 
+						edit.text = text;
+						account.edits.push(edit);
+						console.log(edit);
 					}
-					else
-						account.remarks = {};
-				} else return;
-				
-				
-				account.edits = [];
-				var index = 5;
-				while ( index < fields.length && fields[index] != null && fields[index].length > 0 )
-				{
-					if ( fields[index] != '\r' ) account.edits.push(fields[index]);
 					index++;
 				}
 		
