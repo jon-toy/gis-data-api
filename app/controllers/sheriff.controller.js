@@ -92,7 +92,7 @@ exports.readEditHistoryIntoMemory = (folder) => {
 							else {
 								// Remove from the text (xx/xx/xx)
 								text = text.replace(dateStringRaw, "");
-								edit.date = new Date(Date.parse(date));
+								edit.date = date;
 							}
 						}
 
@@ -157,7 +157,14 @@ exports.getEditHistory = (req, res, next) => {
 			return res.status(404).send(error);
 		}
 
-		res.send(JSON.parse(result));
+		var ret = JSON.parse(result);
+
+		// Sort by date
+		ret.edits.sort(function(a,b){
+			return new Date(Date.parse(b.date)) - new Date(Date.parse(a.date));
+		});
+
+		res.send(ret);
 	});
 };
 
