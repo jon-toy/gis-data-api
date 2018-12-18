@@ -59,10 +59,37 @@ exports.readEditHistoryIntoMemory = (folder) => {
 				if ( fields[2] ) account.road = fields[2]; else return;
 				if ( fields[3] ) account.owner = fields[3]; else return;
 				if ( fields[4] ) {
-					if (fields[4] != "NULL")
-						account.remarks = fields[4]; 
+					if (fields[4] != "NULL") {
+						var remarks = {};
+
+						var text = fields[4]; 
+
+						if (text.length > 10) {
+							// Date string by default is (xx/xx/xx)
+							// Length is 10
+							var dateStringRaw = fields[4].substring(text.length - 8, text.length);
+
+							var date = dateStringRaw.replace("(", "").replace(")", "");
+
+							// Check and make sure this is a date
+							//var dateRegex = '/(0[1-9]|1[012])[- \/.](0[1-9]|[12][0-9]|3[01])[- \/.]\d\d/g';
+							var dateRegex = `[0-9][0-9]\/[0-9][0-9]\/[0-9][0-9]`;
+							var result = date.match(dateRegex);
+							if(result == null) {
+								console.log("Invalid Date: " + date);
+							}
+							else {
+								// Remove from the text (xx/xx/xx)
+								text = text.replace(dateStringRaw, "");
+								remarks.date = date;
+							}
+						}
+
+						remarks.text = text;
+						account.remarks = remarks; 
+					}
 					else
-						account.remarks = "";
+						account.remarks = {};
 				} else return;
 				
 				
