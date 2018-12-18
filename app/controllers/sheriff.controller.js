@@ -92,13 +92,12 @@ exports.readEditHistoryIntoMemory = (folder) => {
 							else {
 								// Remove from the text (xx/xx/xx)
 								text = text.replace(dateStringRaw, "");
-								edit.date = date;
+								edit.date = new Date(Date.parse(date));
 							}
 						}
 
 						edit.text = text;
 						account.edits.push(edit);
-						console.log(edit);
 					}
 					index++;
 				}
