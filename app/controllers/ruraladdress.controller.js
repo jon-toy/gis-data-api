@@ -33,8 +33,26 @@ exports.getZoneEditHistory = (req, res, next) => {
         res.status(400).json({error: true, msg: 'No Zone Name provided'})
 		return;
     }
+
     redis_client.get(ZONE_EDIT_HISTORY_PREFIX + req.params.zoneName, (err, result) => {
-        res.send(JSON.parse(result));
+
+        if (req.query.date) {
+            var filterDate = new Date(req.query.date);
+
+            // Convert from string to JSON
+            result = JSON.parse(result);
+
+            result = result.map(parcel => {
+                parcel.edits = parcel.edits.filter(edit => {
+                    editDate = new Date(edit.date);
+                    return (editDate > filterDate);
+                });
+                return parcel;
+            });
+
+            result = result.filter(parcel => parcel.edits.length > 0);
+        }
+        res.send(result);
     });
 }
 
