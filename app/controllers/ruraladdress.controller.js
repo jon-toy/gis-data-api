@@ -38,6 +38,28 @@ exports.getZoneEditHistory = (req, res, next) => {
     });
 }
 
+exports.getZonesEditHistory = (req, res) => {
+    var folder = __dirname + "/../../public/ruraladdress";
+
+    var ret = {};
+    ret.zones = [];
+    fs.readdir(folder, (err, files) => {
+		files.forEach(file => {
+            if (file == ".DS_Store") return;
+
+            var zone = {};
+            zone.name = file.replace(".tsv", "");
+
+            var stats = fs.statSync(folder + "/" + file);
+            zone.lastModified = stats.mtime;
+
+            ret.zones.push(zone);
+        });
+
+        res.send(ret);
+    });
+}
+
 function handleResponse(req, res, folderName) {
     if (!req.files.markers.size > 0 &&
         !req.files.parcels.size > 0 &&

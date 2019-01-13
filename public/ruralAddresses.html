@@ -1,7 +1,48 @@
 <html>
 <head>
-<title>Rural Addresses Upload Tool</title>
+	<title>Rural Addresses Upload Tool</title>
+	<style>
+		#EditHistoryTable {
+			font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+			border-collapse: collapse;
+			width: 100%;
+		}
+		
+		#EditHistoryTable td, #EditHistoryTable th {
+			border: 1px solid #ddd;
+			padding: 8px;
+		}
+		
+		#EditHistoryTable tr:nth-child(even){background-color: #f2f2f2;}
+		
+		#EditHistoryTable tr:hover {background-color: #ddd;}
+		
+		#EditHistoryTable th {
+			padding-top: 12px;
+			padding-bottom: 12px;
+			text-align: left;
+			background-color: #4CAF50;
+			color: white;
+		}
+	</style>
 </head>
+
+<script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.form/4.2.2/jquery.form.min.js" integrity="sha384-FzT3vTVGXqf7wRfy8k4BiyzvbNfeYjK+frTVqZeNDFl8woCbF0CYG6g2fMEFFo/i" crossorigin="anonymous"></script>
+  
+<script type="text/javascript">
+	$.getJSON("/rural-addresses/edit-history", function (data) 
+	{
+		var table = document.getElementById("EditHistoryTable");
+		for (var i = 0; i < data.zones.length; i++) {
+			var zone = data.zones[i];
+			var row = document.createElement('tr');
+			row.innerHTML = "<td>" + zone.name + "</td><td>" + new Date(zone.lastModified) + "</td>"; 
+
+			table.appendChild(row);
+		}
+	});
+</script>
 <body>
 	<p>This page is for uploading Rural Addressing files for a specific zone. This page will someday be replaced by a prettier frontend.</p>
 	<form class="form-horizontal" role="form" action="/rural-addresses" method="post" enctype="multipart/form-data">
@@ -21,5 +62,14 @@
 	
 	<p>To retrieve the GeoJSON, visit the URL given.</p>
 	<p>To retrieve a list of all available GeoJSON files, visit /list</p>
+	<p>&nbsp;</p>
+	<h1>Edit History Data</h1>
+	<table id="EditHistoryTable">
+		<tr>
+			<th>Zone</th>
+			<th>Last Updated</th>
+		</tr>
+		<!-- Filled in by JS -->
+	</table>
 </body>
 </html>
