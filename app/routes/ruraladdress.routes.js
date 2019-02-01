@@ -12,4 +12,7 @@ module.exports = (app) => {
 
     // Get a collection of all the edit history for this zone (with parcel data)
     app.get('/rural-addresses/edit-history/:zoneName', ruralAddresses.getZoneEditHistory);
+
+    // Get the meta data for all zone files
+    app.get('/rural-addresses/meta-data', ruralAddresses.getMetaData);
 }

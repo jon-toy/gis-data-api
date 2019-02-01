@@ -36,21 +36,35 @@ exports.getZoneEditHistory = (req, res, next) => {
 
     redis_client.get(ZONE_EDIT_HISTORY_PREFIX + req.params.zoneName, (err, result) => {
 
-        if (req.query.date) {
-            var filterDate = new Date(req.query.date);
+        // Convert from string to JSON
+        result = JSON.parse(result);
 
-            // Convert from string to JSON
-            result = JSON.parse(result);
+        if (req.query.startDate) {
+            var startDate = new Date(req.query.startDate);
 
             result = result.map(parcel => {
                 parcel.edits = parcel.edits.filter(edit => {
                     editDate = new Date(edit.date);
-                    return (editDate > filterDate);
+                    return (editDate >= startDate); // Only show edits that meet are after this start date
                 });
                 return parcel;
             });
 
-            result = result.filter(parcel => parcel.edits.length > 0);
+            result = result.filter(parcel => parcel.edits.length > 0); // Only show parcels that fit this criteria
+        }
+
+        if (req.query.endDate) {
+            var endDate = new Date(req.query.endDate);
+
+            result = result.map(parcel => {
+                parcel.edits = parcel.edits.filter(edit => {
+                    editDate = new Date(edit.date);
+                    return (editDate <= endDate); // Only show edits that meet are before this end date
+                });
+                return parcel;
+            });
+
+            result = result.filter(parcel => parcel.edits.length > 0); // Only show parcels that fit this criteria
         }
         res.send(result);
     });
@@ -140,5 +154,38 @@ function handleEditHistory(fileName, file) {
 
             sheriff.readEditHistoryIntoMemory(dir);
         });
+    });
+}
+
+exports.getMetaData = (req, res) => {
+    var zoneFolder = __dirname + "/../../public/transportation/zones";
+
+    var ret = [];
+    fs.readdir(zoneFolder, (err, folders) => {
+		folders.forEach(folder => {
+            if (folder == ".DS_Store") return;
+
+            var zone = {};
+            zone.name = folder;
+            zone.files = [];
+
+            var files = fs.readdirSync(zoneFolder + "/" + folder);
+            files.forEach(file => {
+
+                var zoneFile = {};
+                zoneFile.name = file;
+
+                var stats = fs.statSync(zoneFolder + "/" + folder + "/" + file);
+                zoneFile.lastModified = stats.mtime;
+                zoneFile.creationDate = stats.ctime;
+                zoneFile.size = stats.size;
+
+                zone.files.push(zoneFile);
+            });
+            
+            ret.push(zone);
+        });
+
+        res.send(ret);
     });
 }
