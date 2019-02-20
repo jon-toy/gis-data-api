@@ -50,7 +50,7 @@ exports.readEditHistoryIntoMemory = (folder) => {
 			var zone_edit_history_parcels = [];
 			var input = fs.createReadStream(folder + "/" + file);
 			readLines(input, (line) => {
-				if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') && line.indexOf('ROAD') && line.indexOf('EDITS') ) return;
+				if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') >= 0 && line.indexOf('ROAD') >= 0 && line.indexOf('EDITS') >= 0 ) return;
 				var account = {}; // Account object to hold the data we're about to read in
 		
 				var fields = line.split('\t');
@@ -64,7 +64,6 @@ exports.readEditHistoryIntoMemory = (folder) => {
 					else
 						account.remarks = "";
 				} else return;
-				
 				
 				account.edits = [];
 				var index = 5;
