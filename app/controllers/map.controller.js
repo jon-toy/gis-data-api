@@ -14,6 +14,9 @@ exports.convertBook = (req, res, next) => {
 
 function sanitizeFeature(feature)
 {
+	var ret = {};
+	ret.feature = null;
+	ret.unclosed = [];
 	// Unclosed Polygons
 	{
 		var first_lat_lon = feature.geometry.coordinates[0][0];
@@ -22,6 +25,7 @@ function sanitizeFeature(feature)
 		if ( first_lat_lon[0] != last_lat_lon[0] && first_lat_lon[1] != last_lat_lon[1] )
 		{
 			console.log("Unclosed Polygon: " + feature.properties.PARCEL_NUM);
+			ret.unclosed.push(feature.properties.PARCEL_NUM);
 			feature.geometry.coordinates[0].push(feature.geometry.coordinates[0][0]);
 		}
 	}
@@ -59,9 +63,9 @@ function sanitizeFeature(feature)
 		if ( feature.properties.PARCEL_NUM.indexOf("INDEX") >= 0 ) return null; // Skip Indexes
 	}
 
-	feature = reduceDecimal(feature);
+	ret.feature = reduceDecimal(feature);
 
-	return feature;
+	return ret;
 }
 
 function reduceDecimal(feature)
@@ -98,19 +102,26 @@ function convertToGeoJson(req, res, next, folder_name)
 		.field('sourceSrs', '')
 		.field('targetSrs', '')
 		.attach('upload', data.path)
-		.end(function (er, res) {
+		.end((er, s_res) => {
 			if (er) return console.error(er)
 			
 			var sanitized = {};
-			sanitized.type = res.body.type;
+			sanitized.type = s_res.body.type;
 			sanitized.features = [];
 
+			var unclosed = [];
+
 			// Go through each feature and verify that the polygon is properly closed (first coordinate is equal to the last one)
-			for ( var i = 0; i < res.body.features.length; i++ )
+			for ( var i = 0; i < s_res.body.features.length; i++ )
 			{
-				var feature = sanitizeFeature(res.body.features[i]);
+				var result = sanitizeFeature(s_res.body.features[i]);
+				var feature = result.feature;
 
 				if ( feature == null ) continue;
+
+				for ( var j = 0; j < result.unclosed.length; j++ ) {
+					unclosed.push(result.unclosed[j]);
+				}
 				
 				sanitized.features.push(feature);
 
@@ -132,10 +143,17 @@ function convertToGeoJson(req, res, next, folder_name)
 				if(err) {
 					return console.log(err);
 				}
-			}); 
-		});
-		
-		return res.json({"message": "The file was saved as " + file_name});
+			});
+			
+			if (unclosed.length > 0) {
+				res.json({"message": "Saved as " + file_name + ", but unclosed Polygons: " + unclosed});
+			}
+			else {
+				res.json({"message": "The file was saved as " + file_name});
+			}
+		}); 
+
+		return;
 }
 
 // Get all GeoJSONs
