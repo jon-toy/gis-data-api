@@ -60,6 +60,7 @@ function loadCacheOnStartup()
   loadCacheZones();
   loadCacheParcels();
   loadCacheSheriffEditHistory();
+  loadCacheSheriffRotation();
 
   function loadCacheZones()
   {
@@ -138,5 +139,10 @@ function loadCacheOnStartup()
   function loadCacheSheriffEditHistory()
   {
     sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress");
+  }
+
+  function loadCacheSheriffRotation()
+  {
+    sheriff.readRotationIntoMemory(__dirname + "/public/ruraladdress/rotation");
   }
 }

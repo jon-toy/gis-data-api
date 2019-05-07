@@ -70,6 +70,20 @@ exports.getZoneEditHistory = (req, res, next) => {
     });
 }
 
+exports.getZoneRotations = (req, res, next) => {
+    if (!req.params.zoneName) {
+        res.status(400).json({error: true, msg: 'No Zone Name provided'})
+		return;
+    }
+
+    redis_client.get(ZONE_ROTATION_PREFIX + req.params.zoneName, (err, result) => {
+
+        // Convert from string to JSON
+        result = JSON.parse(result);
+        res.send(result);
+    });
+}
+
 exports.getZonesEditHistory = (req, res) => {
     var folder = __dirname + "/../../public/ruraladdress";
 
@@ -97,7 +111,8 @@ function handleResponse(req, res, folderName) {
         !req.files.parcels.size > 0 &&
         !req.files.roads.size > 0 &&
         !req.files.text.size > 0 &&
-        !req.files.history.size > 0) {
+        !req.files.history.size > 0 &&
+        !req.files.rotation.size > 0) {
 
 		res.status(400).json({error: true, msg: 'No file provided'})
 		return;
@@ -113,6 +128,7 @@ function handleResponse(req, res, folderName) {
     if (req.files.text.size > 0) convertAndWrite(folderName, "text.json", req.files.text);
 
     if (req.files.history.size > 0) handleEditHistory(folderName, req.files.history);
+    if (req.files.rotation.size > 0) handleRotation(folderName, req.files.rotation);
 
     return res.json({"message": "Writing in directory " + folderName});
 }
@@ -153,6 +169,23 @@ function handleEditHistory(fileName, file) {
             }
 
             sheriff.readEditHistoryIntoMemory(dir);
+        });
+    });
+}
+
+function handleRotation(fileName, file) {
+    var dir = __dirname + "/../../public/ruraladdress/rotation/";
+
+    fs.readFile(file.path, function read(err, data) {
+        if (err) {
+            throw err;
+        }
+        fs.writeFile(dir + "/" + fileName + ".tsv", data, (err) => {
+            if(err) {
+                return console.log(err);
+            }
+
+            sheriff.readRotationIntoMemory(dir);
         });
     });
 }

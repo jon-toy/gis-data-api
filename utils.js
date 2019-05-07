@@ -7,6 +7,7 @@ module.exports = function()
     this.BALANCE_DUE_FILENAME = "balance_due_extract.txt";
     this.SHERIFF_EDIT_HISTORY_PREFIX = "SHERIFF_EDIT_HISTORY_";
     this.ZONE_EDIT_HISTORY_PREFIX = "ZONE_EDIT_HISTORY_";
+    this.ZONE_ROTATION_PREFIX = "ZONE_ROTATION_";
     this.EDIT_HISTORY_FILENAME = "edit_history.tsv";
     
     this.normalizeParcelNumber = function(parcel_num)

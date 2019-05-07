@@ -47,6 +47,7 @@ exports.readEditHistoryIntoMemory = (folder) => {
 	
 	fs.readdir(folder, (err, files) => {
 		files.forEach(file => {
+			if (file == 'rotation') return;
 			var zone_edit_history_parcels = [];
 			var input = fs.createReadStream(folder + "/" + file);
 			readLines(input, (line) => {
@@ -115,6 +116,36 @@ exports.readEditHistoryIntoMemory = (folder) => {
 				console.log(zone_edit_history_parcels);
 
 				redis_client.set(ZONE_EDIT_HISTORY_PREFIX + file.replace(".tsv", ""), JSON.stringify(zone_edit_history_parcels));
+			});
+			
+		});
+	  })
+}
+
+exports.readRotationIntoMemory = (folder) => {
+	if ( fs.existsSync(folder) == false ) return;
+	
+	fs.readdir(folder, (err, files) => {
+		files.forEach(file => {
+			var rotations = [];
+			var input = fs.createReadStream(folder + "/" + file);
+			readLines(input, (line) => {
+				var fields = line.split('\t');
+				var rotation = {}; // The rotation we're about to store the data in
+
+				if ( fields[0] ) rotation.marker = fields[0]; else return;
+				if ( fields[1] ) rotation.radians = fields[1]; else return;
+				
+				rotations.push(rotation);
+			}, () => {
+
+				// Set a cache object for all rotations by zone
+				if (rotations.length <= 0) return;
+
+				console.log("Loading rotations for zone: " + file.replace(".tsv", ""));
+				console.log(rotations);
+
+				redis_client.set(ZONE_ROTATION_PREFIX + file.replace(".tsv", ""), JSON.stringify(rotations));
 			});
 			
 		});
