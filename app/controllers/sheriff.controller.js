@@ -134,7 +134,7 @@ exports.readRotationIntoMemory = (folder) => {
 				var rotation = {}; // The rotation we're about to store the data in
 
 				if ( fields[0] ) rotation.marker = fields[0]; else return;
-				if ( fields[1] ) rotation.radians = fields[1]; else return;
+				if ( fields[1] ) rotation.radians = parseFloat(fields[1]); else return;
 				
 				rotations.push(rotation);
 			}, () => {
