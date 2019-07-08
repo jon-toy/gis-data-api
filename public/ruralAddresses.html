@@ -47,8 +47,10 @@
 	<p>This page is for uploading Rural Addressing files for a specific zone. This page will someday be replaced by a prettier frontend.</p>
 	<form class="form-horizontal" role="form" action="/rural-addresses" method="post" enctype="multipart/form-data">
 		<br>Zone:<select name="zoneName">
+			<option value="north">North</option>
+			<option value="east">East</option>
 			<option value="south">South</option>
-			<option value="west">West</option>
+			<option value="vernon">Vernon</option>
 			<option value="concho">Concho</option>
 		  </select>
 		<br>Markers: <input id="markers" name="markers" type="file" />
