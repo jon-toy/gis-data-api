@@ -24,6 +24,7 @@
     "jsonfile": "^4.0.0",
     "mongoose": "^5.4.10",
     "redis": "^2.8.0",
+    "request": "^2.88.0",
     "superagent": "^3.8.2"
   }
 }

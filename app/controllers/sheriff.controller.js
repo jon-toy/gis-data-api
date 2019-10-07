@@ -51,6 +51,10 @@ exports.readEditHistoryIntoMemory = (folder) => {
 			var zone_edit_history_parcels = [];
 			var input = fs.createReadStream(folder + "/" + file);
 			readLines(input, (line) => {
+				if ( line.indexOf("202-04-015") >= 0 )
+				{
+					var i = 0;
+				}
 				if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') >= 0 && line.indexOf('ROAD') >= 0 && line.indexOf('EDITS') >= 0 ) return;
 				var account = {}; // Account object to hold the data we're about to read in
 		

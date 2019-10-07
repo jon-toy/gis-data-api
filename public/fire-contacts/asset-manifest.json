@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/fire-contacts/static/css/main.5a347b32.chunk.css",
+    "main.js": "/fire-contacts/static/js/main.78b7c6a8.chunk.js",
+    "main.js.map": "/fire-contacts/static/js/main.78b7c6a8.chunk.js.map",
+    "runtime-main.js": "/fire-contacts/static/js/runtime-main.4a228586.js",
+    "runtime-main.js.map": "/fire-contacts/static/js/runtime-main.4a228586.js.map",
+    "static/js/2.b1822ea2.chunk.js": "/fire-contacts/static/js/2.b1822ea2.chunk.js",
+    "static/js/2.b1822ea2.chunk.js.map": "/fire-contacts/static/js/2.b1822ea2.chunk.js.map",
+    "index.html": "/fire-contacts/index.html",
+    "precache-manifest.3e7a9643c418bcb86a93e02c6badd5fb.js": "/fire-contacts/precache-manifest.3e7a9643c418bcb86a93e02c6badd5fb.js",
+    "service-worker.js": "/fire-contacts/service-worker.js",
+    "static/css/main.5a347b32.chunk.css.map": "/fire-contacts/static/css/main.5a347b32.chunk.css.map"
+  }
+}
