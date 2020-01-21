@@ -1,3 +1,5 @@
+const fs = require('fs');
+
 module.exports = function()
 {
     this.ZONE_BOOK_LIST_KEY_PREFIX = "ZONE_BOOK_LIST_";
@@ -9,6 +11,14 @@ module.exports = function()
     this.ZONE_EDIT_HISTORY_PREFIX = "ZONE_EDIT_HISTORY_";
     this.ZONE_ROTATION_PREFIX = "ZONE_ROTATION_";
     this.EDIT_HISTORY_FILENAME = "edit_history.tsv";
+    
+    // S3 Access
+    // TODO DO NOT COMMIT
+    const s3Params = JSON.parse(fs.readFileSync(__dirname + "/s3params.json"));
+
+    this.S3_ACCESS = s3Params.accessId;
+    this.S3_SECRET = s3Params.secret;
+    this.S3_BUCKET_NAME = s3Params.bucketName;
     
     this.normalizeParcelNumber = function(parcel_num)
     {

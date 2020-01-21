@@ -7,6 +7,12 @@ var redis = require('redis');
 var redis_client = redis.createClient();
 
 const UPLOAD_PASSWORD = 'apache_county_eggdrop1315';
+const AWS = require('aws-sdk');
+
+const s3 = new AWS.S3({
+    accessKeyId: S3_ACCESS,
+    secretAccessKey: S3_SECRET
+});
 
 exports.convertBook = (req, res, next) => {	
 	return convertToGeoJson(req, res, next, "books");
@@ -138,19 +144,21 @@ function convertToGeoJson(req, res, next, folder_name)
 				}
 			}
 
-			console.log("Finished parsing. Writing file " + file_name);
-			fs.writeFile(__dirname + "/../../public/" + folder_name + "/" + file_name, JSON.stringify(sanitized), function(err) {
-				if(err) {
-					return console.log(err);
+			console.log("Finished parsing. Writing file " + file_name + " to S3");
+
+			// Write to S3
+			uploadFileToS3(folder_name + "/" + file_name, JSON.stringify(sanitized), function(err, data) {
+				if (err) {
+					res.json({"message": "Error: " + err});
+					return;
 				}
-			});
-			
-			if (unclosed.length > 0) {
-				res.json({"message": "Saved as " + file_name + ", but unclosed Polygons: " + unclosed});
-			}
-			else {
-				res.json({"message": "The file was saved as " + file_name});
-			}
+				if (unclosed.length > 0) {
+					res.json({"message": "Saved as " + file_name + ", but unclosed Polygons: " + unclosed});
+				}
+				else {
+					res.json({"message": "The file was saved as " + file_name});
+				}
+			})
 		}); 
 
 		return;
@@ -177,4 +185,16 @@ exports.listBook = (req, res, next) => {
 		zone.books = map_files;
 		res.json(zone);
 	})
+};
+
+const uploadFileToS3 = (relativeFilePath, fileContent, uploadCallback) => {
+    // Setting up S3 upload parameters
+    const params = {
+        Bucket: S3_BUCKET_NAME,
+        Key: 'gis-data-api/' + relativeFilePath, // File name you want to save as in S3
+        Body: fileContent
+    };
+
+    // Uploading files to the bucket
+    s3.upload(params, uploadCallback);
 };

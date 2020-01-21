@@ -15,3 +15,4 @@ public/ruraladdress/north.tsv
 public/ruraladdress/east.tsv
 package-lock.json
 public/transportation/zones
+s3params.json

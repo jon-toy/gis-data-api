@@ -1,13 +1,15 @@
 // Import
-var compression = require('compression');
-var express = require('express');
-var bodyParser = require('body-parser');
-var multiparty = require('connect-multiparty');
-var redis = require('redis');
-var redis_client = redis.createClient();
-var fs = require('fs');
-var jsonfile = require('jsonfile');
-var sheriff = require('./app/controllers/sheriff.controller.js');
+const compression = require('compression');
+const express = require('express');
+const bodyParser = require('body-parser');
+const multiparty = require('connect-multiparty');
+const redis = require('redis');
+const redis_client = redis.createClient();
+const fs = require('fs');
+const jsonfile = require('jsonfile');
+const sheriff = require('./app/controllers/sheriff.controller.js');
+const AWS = require('aws-sdk');
+const s3 = new AWS.S3();
 
 // Instantiate
 const app = express();
@@ -40,6 +42,7 @@ require('./app/routes/sheriff.routes.js')(app);
 require('./app/routes/ruraladdress.routes.js')(app);
 require('./app/routes/tools.routes.js')(app);
 require('./app/routes/firecontacts.routes.js')(app);
+require('./app/routes/books.routes.js')(app);
 
 // Static files
 app.use(express.static(__dirname + '/public'));

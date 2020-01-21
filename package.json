@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/jon-toy/gis-data-api#readme",
   "dependencies": {
+    "aws-sdk": "^2.607.0",
     "body-parser": "^1.18.2",
     "compression": "^1.7.2",
     "connect-multiparty": "^2.1.0",
@@ -26,6 +27,6 @@
     "mongoose": "^5.4.10",
     "redis": "^2.8.0",
     "request": "^2.88.0",
-    "superagent": "^3.8.2"
+    "superagent": "^5.2.1"
   }
 }
