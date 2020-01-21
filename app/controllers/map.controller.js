@@ -168,15 +168,21 @@ function convertToGeoJson(req, res, next, folder_name)
 exports.listBook = (req, res, next) => {
 	const folder = __dirname + "/../../public/books";
 
-	fs.readdir(folder, (err, files) => {
+	var params = { 
+		Bucket: S3_BUCKET_NAME,
+		Delimiter: '/',
+		Prefix: 'gis-data-api/books/'
+	}
+
+	s3.listObjectsV2(params, (err, data) => {
 		var map_files = [];
+		for (var i = 0; i < data.Contents.length; i++) {
+			const fileName = data.Contents[i].Key.replace('gis-data-api/books/', '');
 
-		for ( var i = 0; i < files.length; i++ )
-		{
-			// Skip the non JSONs
-			if(files[i].indexOf('json') < 0 ) continue;
+			// Skip non JSONs
+			if (fileName.indexOf('json') < 0) continue;
 
-			map_files.push(files[i]);
+			map_files.push(fileName);
 		}
 
 		var zone = {};
@@ -184,7 +190,7 @@ exports.listBook = (req, res, next) => {
 		zone.name = "All";
 		zone.books = map_files;
 		res.json(zone);
-	})
+	});
 };
 
 const uploadFileToS3 = (relativeFilePath, fileContent, uploadCallback) => {
