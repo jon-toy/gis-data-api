@@ -5,8 +5,6 @@ const bodyParser = require('body-parser');
 const multiparty = require('connect-multiparty');
 const redis = require('redis');
 const redis_client = redis.createClient();
-const fs = require('fs');
-const jsonfile = require('jsonfile');
 const sheriff = require('./app/controllers/sheriff.controller.js');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
@@ -101,40 +99,45 @@ function loadCacheOnStartup()
 
   function loadCacheParcels()
   {
-    const folder = __dirname + "/public/books";
-
-    fs.readdir(folder, (err, files) => {
-
-      for ( var i = 0; i < files.length; i++ )
-      {
-        if(files[i].indexOf('json') < 0 ) continue; // Skip non-JSONs
-
-        var file_name = files[i];
-        
-        jsonfile.readFile(folder + "/" + file_name, function(err, obj) {
-          if ( err != null )
-          {
-            console.log(err);
-
-          }
-          // Load the JSON into Redis
-          for ( var j = 0; j < obj.features.length; j++ ) 
-          {
-            var feature = obj.features[j];
-
-            if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
-
-            var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
-
-            console.log("Writing " + key + " to Redis");
-            var stringified = JSON.stringify(feature);
-            redis_client.set(key, stringified); // By Parcel Number
-
-            if ( feature.properties.NUMBER != null)
+    var params = { 
+      Bucket: S3_BUCKET_NAME,
+      Delimiter: '/',
+      Prefix: 'gis-data-api/books/'
+    }
+  
+    s3.listObjectsV2(params, (err, data) => {
+      for (var i = 0; i < data.Contents.length; i++) {
+        // Skip non JSONs
+        if (data.Contents[i].Key.indexOf('json') < 0) continue;
+  
+        s3.getObject({ Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key }, function(err, data)
+        {
+            if ( err != null )
             {
-              redis_client.set(normalizeAccountNumber(feature.properties.NUMBER), stringified); // By Account Number
+              console.log(err);
+
             }
-          }
+
+            const obj = JSON.parse(data.Body.toString());
+
+            // Load the JSON into Redis
+            for ( var j = 0; j < obj.features.length; j++ ) 
+            {
+              var feature = obj.features[j];
+
+              if ( feature.properties.PARCEL_NUM == null ) continue; // Skip parcels that have no number
+
+              var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
+
+              console.log("Writing " + key + " to Redis");
+              var stringified = JSON.stringify(feature);
+              redis_client.set(key, stringified); // By Parcel Number
+
+              if ( feature.properties.NUMBER != null)
+              {
+                redis_client.set(normalizeAccountNumber(feature.properties.NUMBER), stringified); // By Account Number
+              }
+            }
         });
       }
     });
