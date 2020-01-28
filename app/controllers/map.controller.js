@@ -147,7 +147,7 @@ function convertToGeoJson(req, res, next, folder_name)
 			console.log("Finished parsing. Writing file " + file_name + " to S3");
 
 			// Write to S3
-			uploadFileToS3(folder_name + "/" + file_name, JSON.stringify(sanitized), function(err, data) {
+			uploadJSONToS3(folder_name + "/" + file_name, JSON.stringify(sanitized), function(err, data) {
 				if (err) {
 					res.json({"message": "Error: " + err});
 					return;
@@ -166,7 +166,6 @@ function convertToGeoJson(req, res, next, folder_name)
 
 // Get all GeoJSONs
 exports.listBook = (req, res, next) => {
-	const folder = __dirname + "/../../public/books";
 
 	var params = { 
 		Bucket: S3_BUCKET_NAME,
@@ -191,16 +190,4 @@ exports.listBook = (req, res, next) => {
 		zone.books = map_files;
 		res.json(zone);
 	});
-};
-
-const uploadFileToS3 = (relativeFilePath, fileContent, uploadCallback) => {
-    // Setting up S3 upload parameters
-    const params = {
-        Bucket: S3_BUCKET_NAME,
-        Key: 'gis-data-api/' + relativeFilePath, // File name you want to save as in S3
-        Body: fileContent
-    };
-
-    // Uploading files to the bucket
-    s3.upload(params, uploadCallback);
-};
+}; 

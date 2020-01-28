@@ -7,6 +7,8 @@ var redis_client = redis.createClient();
 var edit_history_parcels = [];
 
 const UPLOAD_PASSWORD = 'apache_county_eggdrop1315';
+const AWS = require('aws-sdk');
+const s3 = new AWS.S3();
 
 exports.convertEditReport = (req, res, next) => {	
 	return parseEditReportCsvFile(req, res, next, "sheriff");
@@ -43,14 +45,21 @@ function parseEditReportCsvFile(req, res, next, folder_name)
 }
 
 exports.readEditHistoryIntoMemory = (folder) => {
-	if ( fs.existsSync(folder) == false ) return;
+	var params = { 
+		Bucket: S3_BUCKET_NAME,
+		Delimiter: '/',
+		Prefix: 'gis-data-api/ruraladdress/'
+	  }
 	
-	fs.readdir(folder, (err, files) => {
-		files.forEach(file => {
-			if (file == 'rotation') return;
-			var zone_edit_history_parcels = [];
-			var input = fs.createReadStream(folder + "/" + file);
-			readLines(input, (line) => {
+	s3.listObjectsV2(params, (err, data) => {
+		for (var i = 0; i < data.Contents.length; i++) {
+			// Skip rotation folder
+			var file = data.Contents[i].Key.replace('gis-data-api/ruraladdress/', '');
+			if (file.indexOf('rotation') >= 0) continue;
+			
+			var zone_edit_history_parcels = []
+			var s3Stream = s3.getObject({ Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key }).createReadStream();
+			readLines(s3Stream, (line) => {
 				if ( line.indexOf("202-04-015") >= 0 )
 				{
 					var i = 0;
@@ -117,13 +126,11 @@ exports.readEditHistoryIntoMemory = (folder) => {
 				if (zone_edit_history_parcels.length <= 0) return;
 
 				console.log("Creating zone object for zone: " + file.replace(".tsv", ""));
-				console.log(zone_edit_history_parcels);
 
 				redis_client.set(ZONE_EDIT_HISTORY_PREFIX + file.replace(".tsv", ""), JSON.stringify(zone_edit_history_parcels));
-			});
-			
-		});
-	  })
+			})
+		}
+	});
 }
 
 exports.readRotationIntoMemory = (folder) => {

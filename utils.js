@@ -13,12 +13,46 @@ module.exports = function()
     this.EDIT_HISTORY_FILENAME = "edit_history.tsv";
     
     // S3 Access
-    // TODO DO NOT COMMIT
     const s3Params = JSON.parse(fs.readFileSync(__dirname + "/s3params.json"));
 
     this.S3_ACCESS = s3Params.accessId;
     this.S3_SECRET = s3Params.secret;
     this.S3_BUCKET_NAME = s3Params.bucketName;
+    
+    const AWS = require('aws-sdk');
+    const s3 = new AWS.S3({
+        accessKeyId: S3_ACCESS,
+        secretAccessKey: S3_SECRET
+    });
+
+    this.uploadJSONToS3 = (relativeFilePath, fileContent, uploadCallback) => {
+        // Setting up S3 upload parameters
+        const params = {
+            Bucket: S3_BUCKET_NAME,
+            Key: 'gis-data-api/' + relativeFilePath,
+            Body: fileContent
+        };
+    
+        // Uploading files to the bucket
+        s3.upload(params, uploadCallback);
+    };
+
+    this.uploadFileToS3 = (relativeFilePath, file, uploadCallback) => {
+        
+        const key = 'gis-data-api/' + relativeFilePath;
+        var params = {
+            Bucket: S3_BUCKET_NAME,
+            Key: key,
+            Body: fs.createReadStream(file.path),
+        }
+        s3.putObject(params, function(err, data) {
+            if (err) {
+                console.log("Error at uploadFileToS3 function", err);
+            } else {
+                uploadCallback(err, data);
+            }
+        });
+    };
     
     this.normalizeParcelNumber = function(parcel_num)
     {

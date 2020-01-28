@@ -6,6 +6,8 @@ var superagent_request = require("superagent");
 var fs = require('fs');
 var redis = require('redis');
 var redis_client = redis.createClient();
+const AWS = require('aws-sdk');
+const s3 = new AWS.S3();
 
 const UPLOAD_PASSWORD = 'apache_county_eggdrop1315';
 
@@ -85,22 +87,25 @@ exports.getZoneRotations = (req, res, next) => {
 }
 
 exports.getZonesEditHistory = (req, res) => {
-    var folder = __dirname + "/../../public/ruraladdress";
+    const prefix = 'gis-data-api/ruraladdress/';
 
-    var ret = {};
-    ret.zones = [];
-    fs.readdir(folder, (err, files) => {
-		files.forEach(file => {
-            if (file == ".DS_Store") return;
+    //TODO REPLACE WITH S3 LOGIC
+    var params = { 
+		Bucket: S3_BUCKET_NAME,
+		Delimiter: '/',
+		Prefix: prefix
+	  }
+	
+	s3.listObjectsV2(params, (err, data) => {
+        var ret = {};
+        ret.zones = [];
 
+        data.Contents.forEach(file => {
             var zone = {};
-            zone.name = file.replace(".tsv", "");
-
-            var stats = fs.statSync(folder + "/" + file);
-            zone.lastModified = stats.mtime;
-
+            zone.name = file.Key.replace(prefix, '').replace('.tsv', '');
+            zone.lastModified = file.LastModified;
             ret.zones.push(zone);
-        });
+        })
 
         res.send(ret);
     });
@@ -141,83 +146,82 @@ function convertAndWrite(folderName, fileName, data) {
     .attach('upload', data.path)
     .end(function (er, res) {
         if (er) return console.error(er)
-        
-        var dir = __dirname + "/../../public/transportation/zones/" + folderName;
-        
-        if (!fs.existsSync(dir)){
-            fs.mkdirSync(dir);
-        }
 
-        fs.writeFile(dir + "/" + fileName, JSON.stringify(res.body), function(err) {
+        uploadJSONToS3("transportation/zones/" + folderName + "/" + fileName, JSON.stringify(res.body), function(err) {
             if(err) {
                 return console.log(err);
             }
-        }); 
+        });
     });
 }
 
 function handleEditHistory(fileName, file) {
-    var dir = __dirname + "/../../public/ruraladdress/";
-
-    fs.readFile(file.path, function read(err, data) {
-        if (err) {
-            throw err;
-        }
-        fs.writeFile(dir + "/" + fileName + ".tsv", data, (err) => {
-            if(err) {
-                return console.log(err);
-            }
-
-            sheriff.readEditHistoryIntoMemory(dir);
-        });
-    });
+    // Write to S3
+    uploadFileToS3("ruraladdress/" + fileName + ".tsv", file, function(err, data) {
+        if (!err)
+            sheriff.readEditHistoryIntoMemory(file);
+        else
+            console.error(err);
+    })
 }
 
 function handleRotation(fileName, file) {
-    var dir = __dirname + "/../../public/ruraladdress/rotation/";
-
-    fs.readFile(file.path, function read(err, data) {
-        if (err) {
-            throw err;
-        }
-        fs.writeFile(dir + "/" + fileName + ".tsv", data, (err) => {
-            if(err) {
-                return console.log(err);
-            }
-
-            sheriff.readRotationIntoMemory(dir);
-        });
-    });
+     // Write to S3
+     uploadFileToS3("ruraladdress/rotation" + fileName + ".tsv", file, function(err, data) {
+        if (!err)
+            sheriff.readRotationIntoMemory(file);
+        else
+            console.error(err);
+    })
 }
 
 exports.getMetaData = (req, res) => {
     var zoneFolder = __dirname + "/../../public/transportation/zones";
 
-    var ret = [];
-    fs.readdir(zoneFolder, (err, folders) => {
-		folders.forEach(folder => {
-            if (folder == ".DS_Store") return;
+    const zones_prefix = 'gis-data-api/transportation/zones/';
+    var params = { 
+		Bucket: S3_BUCKET_NAME,
+	  }
+    
+    // Get all objects in a bucket
+	s3.listObjectsV2(params, (err, data) => {
+        var files = [];
 
-            var zone = {};
-            zone.name = folder;
-            zone.files = [];
+        // Get all the files that are part of the zones folder
+        data.Contents.forEach(object => {
+            const key = object.Key;
+            if (key.indexOf(zones_prefix) < 0) return;
+           
+            files.push(object);
+        })
 
-            var files = fs.readdirSync(zoneFolder + "/" + folder);
-            files.forEach(file => {
+        var zones = [];
 
-                var zoneFile = {};
-                zoneFile.name = file;
-
-                var stats = fs.statSync(zoneFolder + "/" + folder + "/" + file);
-                zoneFile.lastModified = stats.mtime;
-                zoneFile.creationDate = stats.ctime;
-                zoneFile.size = stats.size;
-
-                zone.files.push(zoneFile);
-            });
-            
-            ret.push(zone);
+        // Get all unique zone names
+        files.forEach(object => {
+            let zone = object.Key.replace(zones_prefix, '');
+            zone = zone.substring(0, zone.indexOf('/'));
+            if (zones.indexOf(zone) < 0 ) zones.push(zone);
         });
+
+        var ret = [];
+
+        // For each zone, get all the files for it and create an object for the return object
+        zones.forEach(zone => {
+            var zoneRet = {}
+            zoneRet.name = zone;
+            zoneRet.files = [];
+            // Get all the files for this zone
+            files.filter(object => object.Key.indexOf(zones_prefix + zone) >= 0)
+                // Create a file object for this zone
+                .forEach(filteredObject => {
+                    var zoneFile = {};
+                    zoneFile.name = filteredObject.Key.replace(zones_prefix + zone + '/', '');
+                    zoneFile.lastModified = filteredObject.LastModified;
+                    zoneRet.files.push(zoneFile);
+                })
+            ret.push(zoneRet);
+        })
 
         res.send(ret);
     });
