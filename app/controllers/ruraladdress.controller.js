@@ -89,7 +89,6 @@ exports.getZoneRotations = (req, res, next) => {
 exports.getZonesEditHistory = (req, res) => {
     const prefix = 'gis-data-api/ruraladdress/';
 
-    //TODO REPLACE WITH S3 LOGIC
     var params = { 
 		Bucket: S3_BUCKET_NAME,
 		Delimiter: '/',

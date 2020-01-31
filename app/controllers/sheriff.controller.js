@@ -29,13 +29,14 @@ function parseEditReportCsvFile(req, res, next, folder_name)
 	var file_name = __dirname + "/../../public/" + folder_name + "/" + EDIT_HISTORY_FILENAME;
 	console.log("Uploaded sheriff edit history export. Saving as " + folder_name + "/" + data.name);
 
-	// Save a copy
+	// Save a copy to S3
 	fs.readFile(data.path, 'utf8', function(err, contents) {
-    fs.writeFile(file_name, contents, function(err) {
-			if(err) {
-				return console.log(err);
-			}
-		}); 
+		uploadFileToS3("ruraladdress/" + EDIT_HISTORY_FILENAME, contents, function(err, data) {
+			if (!err)
+				exports.readEditHistoryIntoMemory(data);
+			else
+				console.error(err);
+		})
 	});
 
 	// Load into memory

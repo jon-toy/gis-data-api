@@ -39,6 +39,7 @@ require('./app/routes/treasurer.routes.js')(app);
 require('./app/routes/sheriff.routes.js')(app);
 require('./app/routes/ruraladdress.routes.js')(app);
 require('./app/routes/tools.routes.js')(app);
+require('./app/routes/transportation.routes.js')(app);
 require('./app/routes/firecontacts.routes.js')(app);
 require('./app/routes/books.routes.js')(app);
 
