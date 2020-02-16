@@ -130,7 +130,6 @@ function loadCacheOnStartup()
 
               var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
 
-              console.log("Writing " + key + " to Redis");
               var stringified = JSON.stringify(feature);
               redis_client.set(key, stringified); // By Parcel Number
 

@@ -14,6 +14,10 @@ exports.findRoadsForZone = (req, res, next) => {
     findForZone(req, res, "roads.json");
 }
 
+exports.findTextForZone = (req, res, next) => {
+    findForZone(req, res, "text.json");
+}
+
 function findForZone(req, res, file) {
     const zone = req.params.zone;
     if (!zone) {
