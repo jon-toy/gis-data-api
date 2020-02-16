@@ -60,11 +60,8 @@ exports.readEditHistoryIntoMemory = (folder) => {
 			
 			var zone_edit_history_parcels = []
 			var s3Stream = s3.getObject({ Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key }).createReadStream();
-			readLines(s3Stream, (line) => {
-				if ( line.indexOf("202-04-015") >= 0 )
-				{
-					var i = 0;
-				}
+			readLines(s3Stream, file, (line) => {
+
 				if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') >= 0 && line.indexOf('ROAD') >= 0 && line.indexOf('EDITS') >= 0 ) return;
 				var account = {}; // Account object to hold the data we're about to read in
 		
@@ -121,14 +118,14 @@ exports.readEditHistoryIntoMemory = (folder) => {
 		
 				// Set in redis
 				redis_client.set(SHERIFF_EDIT_HISTORY_PREFIX + account.apn, JSON.stringify(account));
-			}, () => {
+			}, (fileName) => {
 
 				// Set a cache object for all edit history by zone
 				if (zone_edit_history_parcels.length <= 0) return;
 
-				console.log("Creating zone object for zone: " + file.replace(".tsv", ""));
+				console.log("Creating zone object for zone: " + fileName.replace(".tsv", ""));
 
-				redis_client.set(ZONE_EDIT_HISTORY_PREFIX + file.replace(".tsv", ""), JSON.stringify(zone_edit_history_parcels));
+				redis_client.set(ZONE_EDIT_HISTORY_PREFIX + fileName.replace(".tsv", ""), JSON.stringify(zone_edit_history_parcels));
 			})
 		}
 	});
@@ -141,7 +138,7 @@ exports.readRotationIntoMemory = (folder) => {
 		files.forEach(file => {
 			var rotations = [];
 			var input = fs.createReadStream(folder + "/" + file);
-			readLines(input, (line) => {
+			readLines(input, file, (line) => {
 				var fields = line.split('\t');
 				var rotation = {}; // The rotation we're about to store the data in
 
@@ -149,22 +146,22 @@ exports.readRotationIntoMemory = (folder) => {
 				if ( fields[1] ) rotation.radians = parseFloat(fields[1]); else return;
 				
 				rotations.push(rotation);
-			}, () => {
+			}, (fileName) => {
 
 				// Set a cache object for all rotations by zone
 				if (rotations.length <= 0) return;
 
-				console.log("Loading rotations for zone: " + file.replace(".tsv", ""));
+				console.log("Loading rotations for zone: " + fileName.replace(".tsv", ""));
 				console.log(rotations);
 
-				redis_client.set(ZONE_ROTATION_PREFIX + file.replace(".tsv", ""), JSON.stringify(rotations));
+				redis_client.set(ZONE_ROTATION_PREFIX + fileName.replace(".tsv", ""), JSON.stringify(rotations));
 			});
 			
 		});
 	  })
 }
 
-function readLines(input, func, end) {
+function readLines(input, fileName, func, end) {
 	var remaining = '';
   
 	input.on('data', function(data) {
@@ -173,12 +170,12 @@ function readLines(input, func, end) {
 	  while (index > -1) {
 		var line = remaining.substring(0, index);
 		remaining = remaining.substring(index + 1);
-		func(line);
+		func(line, fileName);
 		index = remaining.indexOf('\n');
 	  }
 	});
   
-	input.on('end', end);
+	input.on('end', () => end(fileName));
   }
 
 // Get the Edit History account object for a single parcel number (param apn)
