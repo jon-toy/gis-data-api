@@ -9,4 +9,7 @@ module.exports = (app) => {
 
      // Roads for Zone
      app.get('/transportation/zones/:zone/roads.json', transportation.findRoadsForZone);
+
+     // Text for Zone
+     app.get('/transportation/zones/:zone/text.json', transportation.findTextForZone);
 }
