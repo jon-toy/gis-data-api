@@ -58,9 +58,8 @@ exports.readEditHistoryIntoMemory = (folder) => {
 			var file = data.Contents[i].Key.replace('gis-data-api/ruraladdress/', '');
 			if (file.indexOf('rotation') >= 0) continue;
 			
-			var zone_edit_history_parcels = []
 			var s3Stream = s3.getObject({ Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key }).createReadStream();
-			readLines(s3Stream, file, (line) => {
+			readLines(s3Stream, file, (line, fileName, zone_edit_history_parcels) => {
 
 				if ( line.indexOf('APN') >= 0 && line.indexOf('SITUS') >= 0 && line.indexOf('ROAD') >= 0 && line.indexOf('EDITS') >= 0 ) return;
 				var account = {}; // Account object to hold the data we're about to read in
@@ -118,12 +117,14 @@ exports.readEditHistoryIntoMemory = (folder) => {
 		
 				// Set in redis
 				redis_client.set(SHERIFF_EDIT_HISTORY_PREFIX + account.apn, JSON.stringify(account));
-			}, (fileName) => {
+			}, (fileName, zone_edit_history_parcels) => {
 
 				// Set a cache object for all edit history by zone
 				if (zone_edit_history_parcels.length <= 0) return;
 
 				console.log("Creating zone object for zone: " + fileName.replace(".tsv", ""));
+				const debug = zone_edit_history_parcels.find(element => element.apn === '204-61-514');
+				console.log(zone_edit_history_parcels.length);
 
 				redis_client.set(ZONE_EDIT_HISTORY_PREFIX + fileName.replace(".tsv", ""), JSON.stringify(zone_edit_history_parcels));
 			})
@@ -163,19 +164,19 @@ exports.readRotationIntoMemory = (folder) => {
 
 function readLines(input, fileName, func, end) {
 	var remaining = '';
-  
+	let zone_edit_history_parcels = [];
 	input.on('data', function(data) {
 	  remaining += data;
 	  var index = remaining.indexOf('\n');
 	  while (index > -1) {
 		var line = remaining.substring(0, index);
 		remaining = remaining.substring(index + 1);
-		func(line, fileName);
+		func(line, fileName, zone_edit_history_parcels);
 		index = remaining.indexOf('\n');
 	  }
 	});
   
-	input.on('end', () => end(fileName));
+	input.on('end', () => end(fileName, zone_edit_history_parcels));
   }
 
 // Get the Edit History account object for a single parcel number (param apn)
