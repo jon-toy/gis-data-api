@@ -33,8 +33,6 @@ exports.convertBook = (req, res, next) => {
       files.file,
       fields.password
     );
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ fields, files }, null, 2));
   });
 };
 
