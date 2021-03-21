@@ -2,6 +2,7 @@ require("../../utils.js")();
 
 // Convert to a GeoJSON
 var superagent_request = require("superagent");
+var formidable = require("formidable");
 var fs = require("fs");
 var redis = require("redis");
 var redis_client = redis.createClient();
@@ -15,7 +16,26 @@ const s3 = new AWS.S3({
 });
 
 exports.convertBook = (req, res, next) => {
-  return convertToGeoJson(req, res, next, "books");
+  // parse a file upload
+  const form = formidable({ keepExtensions: true });
+
+  form.parse(req, (err, fields, files) => {
+    if (err) {
+      res.writeHead(err.httpCode || 400, { "Content-Type": "text/plain" });
+      res.end(String(err));
+      return;
+    }
+    return convertToGeoJson(
+      req,
+      res,
+      next,
+      "books",
+      files.file,
+      fields.password
+    );
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ fields, files }, null, 2));
+  });
 };
 
 function sanitizeFeature(feature) {
@@ -83,16 +103,16 @@ function reduceDecimal(feature) {
   return feature;
 }
 
-function convertToGeoJson(req, res, next, folder_name) {
+function convertToGeoJson(req, res, next, folder_name, file, password) {
   console.log(req);
-  if (!req.files.file || !req.files.file.name) {
+  if (!file) {
     res.status(400).json({ error: true, msg: "No file provided" });
     return;
   }
 
-  var data = req.files.file;
+  var data = file;
+  console.log(file);
   var file_name = data.name.replace(".zip", ".json");
-  var password = req.body.password;
 
   if (password != UPLOAD_PASSWORD)
     return res.json({ message: "Invalid Password" });
