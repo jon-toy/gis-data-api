@@ -14,21 +14,11 @@ const UPLOAD_PASSWORD = "apache_county_eggdrop1315";
 
 // Take in a set of 3 files (Markers, Parcels, Roads) and store them on disk
 exports.postZone = (req, res, next) => {
-  if (!req.body.zoneName) {
-    res.status(400).json({ error: true, msg: "No Zone Name provided" });
-    return;
-  }
-
-  return handleResponse(req, res, req.body.zoneName);
+  return handleResponse(req, res);
 };
 
 exports.putZone = (req, res, next) => {
-  if (!req.params.zoneName) {
-    res.status(400).json({ error: true, msg: "No Zone Name provided" });
-    return;
-  }
-
-  return handleResponse(req, res, req.params.oneName);
+  return handleResponse(req, res);
 };
 
 exports.getZoneEditHistory = (req, res, next) => {
@@ -115,7 +105,7 @@ exports.getZonesEditHistory = (req, res) => {
   });
 };
 
-function handleResponse(req, res, folderName) {
+function handleResponse(req, res) {
   const form = formidable({ keepExtensions: true });
 
   form.parse(req, (err, fields, files) => {
@@ -124,6 +114,14 @@ function handleResponse(req, res, folderName) {
       res.end(String(err));
       return;
     }
+
+    if (!fields.zoneName) {
+      res.status(400).json({ error: true, msg: "No Zone Name provided" });
+      return;
+    }
+
+    const folderName = fields.zoneName;
+
     if (
       !files.markers.size > 0 &&
       !files.parcels.size > 0 &&
