@@ -126,6 +126,7 @@ function handleResponse(req, res) {
       !files.markers.size > 0 &&
       !files.parcels.size > 0 &&
       !files.roads.size > 0 &&
+      !files.water.size > 0 &&
       !files.text.size > 0 &&
       !files.history.size > 0 &&
       !files.rotation.size > 0
@@ -143,6 +144,8 @@ function handleResponse(req, res) {
       convertAndWrite(folderName, "markers.json", files.markers);
     if (files.parcels.size > 0)
       convertAndWrite(folderName, "parcels.json", files.parcels);
+    if (files.water.size > 0)
+      convertAndWrite(folderName, "water.json", files.water);
     if (files.roads.size > 0)
       convertAndWrite(folderName, "roads.json", files.roads);
     if (files.text.size > 0)
