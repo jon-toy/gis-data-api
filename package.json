@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/jon-toy/gis-data-api#readme",
   "dependencies": {
-    "aws-sdk": "^2.607.0",
+    "aws-sdk": "^2.814.0",
     "body-parser": "^1.18.2",
     "compression": "^1.7.2",
     "connect-multiparty": "^2.1.0",
