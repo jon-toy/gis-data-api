@@ -10,6 +10,8 @@ module.exports = function () {
   this.ZONE_EDIT_HISTORY_PREFIX = "ZONE_EDIT_HISTORY_";
   this.ZONE_ROTATION_PREFIX = "ZONE_ROTATION_";
   this.EDIT_HISTORY_FILENAME = "edit_history.tsv";
+  this.TYLER_DATA_FILENAME = "tyler.csv";
+  this.TYLER_DATA_PREFIX = "TYLER_DATA_";
 
   // S3 Access
   const s3Params = JSON.parse(fs.readFileSync(__dirname + "/s3params.json"));

@@ -6,6 +6,7 @@ const multiparty = require("connect-multiparty");
 const redis = require("redis");
 const redis_client = redis.createClient();
 const sheriff = require("./app/controllers/sheriff.controller.js");
+const tyler = require("./app/controllers/tyler.controller.js");
 const AWS = require("aws-sdk");
 const s3 = new AWS.S3();
 
@@ -46,6 +47,7 @@ require("./app/routes/transportation.routes.js")(app);
 require("./app/routes/firecontacts.routes.js")(app);
 require("./app/routes/books.routes.js")(app);
 require("./app/routes/system.routes.js")(app);
+require("./app/routes/tyler.routes.js")(app);
 
 // Static files
 app.use(express.static(__dirname + "/public"));
@@ -66,6 +68,7 @@ function loadCacheOnStartup() {
   loadCacheParcels();
   loadCacheSheriffEditHistory();
   loadCacheSheriffRotation();
+  loadCacheTylerData();
 
   function loadCacheZones() {
     loadZone(
@@ -197,5 +200,9 @@ function loadCacheOnStartup() {
 
   function loadCacheSheriffRotation() {
     sheriff.readRotationIntoMemory(__dirname + "/public/ruraladdress/rotation");
+  }
+
+  function loadCacheTylerData() {
+    tyler.readTylerDataIntoMemory();
   }
 }
