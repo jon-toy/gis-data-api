@@ -94,8 +94,15 @@ exports.readTylerDataIntoMemory = () => {
             var json = record.record;
             json.raw = record.raw;
 
-            // Include the upload date
-            json.lastUploaded = data.LastModified.toLocaleDateString();
+            // Include the upload date (mm/dd/yy)
+            let dateArray = data.LastModified.toLocaleDateString().split("/");
+            if (dateArray.length === 3) {
+              if (dateArray[0].length < 2) dateArray[0] = "0" + dateArray[0];
+              if (dateArray[1].length < 2) dateArray[0] = "0" + dateArray[0];
+              if (dateArray[2].length === 4)
+                dateArray[2] = dateArray[2].substring(2, 4);
+              json.lastUploaded = dateArray.join("/");
+            }
 
             redis_client.set(
               TYLER_DATA_PREFIX + json["Parcel Number"],
