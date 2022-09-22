@@ -91,11 +91,15 @@ exports.readTylerDataIntoMemory = () => {
             var record = records[i];
 
             // Structure the JSON obj so it has the raw string on it
-            var data = record.record;
-            data.raw = record.raw;
+            var json = record.record;
+            json.raw = record.raw;
+
+            // Include the upload date
+            if (data.LastModified)
+              json.lastUploaded = data.LastModified.toDateString();
 
             redis_client.set(
-              TYLER_DATA_PREFIX + data["Parcel Number"],
+              TYLER_DATA_PREFIX + json["Parcel Number"],
               JSON.stringify(data)
             );
           }
