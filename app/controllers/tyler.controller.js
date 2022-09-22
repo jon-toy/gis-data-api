@@ -95,8 +95,8 @@ exports.readTylerDataIntoMemory = () => {
             json.raw = record.raw;
 
             // Include the upload date
-            if (data.LastModified)
-              json.lastUploaded = data.LastModified.toDateString();
+            // if (data.LastModified)
+            //   json.lastUploaded = data.LastModified.toDateString();
 
             redis_client.set(
               TYLER_DATA_PREFIX + json["Parcel Number"],
