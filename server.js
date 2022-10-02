@@ -48,6 +48,7 @@ require("./app/routes/firecontacts.routes.js")(app);
 require("./app/routes/books.routes.js")(app);
 require("./app/routes/system.routes.js")(app);
 require("./app/routes/tyler.routes.js")(app);
+require("./app/routes/gmail.routes.js")(app);
 
 // Static files
 app.use(express.static(__dirname + "/public"));

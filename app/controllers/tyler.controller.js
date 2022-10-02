@@ -39,16 +39,15 @@ function parseTylerDataCsvFile(req, res, next, folder_name) {
     );
 
     fs.readFile(data.path, "utf8", function (err, contents) {
-      // TODO: Re-enable this for prod
-      //Save a copy to S3
-      //     uploadJSONToS3(
-      //     "tyler/" + TYLER_DATA_FILENAME,
-      //     contents,
-      //     function (err, data) {
-      //       if (!err) exports.readTylerDataIntoMemory(data);
-      //       else console.error(err);
-      //     }
-      //   );
+      // Save a copy to S3
+      uploadJSONToS3(
+        "tyler/" + TYLER_DATA_FILENAME,
+        contents,
+        function (err, data) {
+          if (!err) exports.readTylerDataIntoMemory(data);
+          else console.error(err);
+        }
+      );
 
       // Load into memory
       exports.readTylerDataIntoMemory(data.path);
@@ -59,6 +58,7 @@ function parseTylerDataCsvFile(req, res, next, folder_name) {
 }
 
 exports.readTylerDataIntoMemory = () => {
+  console.log("Reading Tyler Data into Memory");
   var params = {
     Bucket: S3_BUCKET_NAME,
     Delimiter: "/",

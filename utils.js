@@ -13,6 +13,18 @@ module.exports = function () {
   this.TYLER_DATA_FILENAME = "tyler.csv";
   this.TYLER_DATA_PREFIX = "TYLER_DATA_";
 
+  const googleParams = JSON.parse(
+    fs.readFileSync(__dirname + "/googleAuth.json")
+  );
+  this.GOOGLEAUTH = {
+    type: "OAuth2",
+    user: "apachecountyfeedback@gmail.com",
+    clientId: googleParams.CLIENT_ID,
+    clientSecret: googleParams.CLIENT_SECRET,
+    refreshToken: googleParams.REFRESH_TOKEN,
+    redirectUri: googleParams.REDIRECT_URI,
+  };
+
   // S3 Access
   const s3Params = JSON.parse(fs.readFileSync(__dirname + "/s3params.json"));
 
@@ -48,6 +60,45 @@ module.exports = function () {
     s3.putObject(params, function (err, data) {
       if (err) {
         console.log("Error at uploadFileToS3 function", err);
+      } else {
+        uploadCallback(err, data);
+      }
+    });
+  };
+
+  this.uploadFileAtPathToS3 = (relativeFilePath, filePath, uploadCallback) => {
+    const key = "gis-data-api/" + relativeFilePath;
+    var params = {
+      Bucket: S3_BUCKET_NAME,
+      Key: key,
+      Body: fs.createReadStream(filePath),
+    };
+    s3.putObject(params, function (err, data) {
+      if (err) {
+        console.log("Error at uploadFileAtPathToS3 function", err);
+      } else {
+        uploadCallback(err, data);
+      }
+    });
+  };
+
+  /**
+   *
+   * @param {*} relativeFilePath
+   * @param {*} stream Readable
+   * @param {*} uploadCallback
+   */
+  this.uploadStreamToS3 = (relativeFilePath, stream, uploadCallback) => {
+    const key = "gis-data-api/" + relativeFilePath;
+    var params = {
+      Bucket: S3_BUCKET_NAME,
+      Key: key,
+      Body: stream,
+      ContentLength: stream.readableLength,
+    };
+    s3.putObject(params, function (err, data) {
+      if (err) {
+        console.log("Error at uploadStreamToS3 function", err);
       } else {
         uploadCallback(err, data);
       }

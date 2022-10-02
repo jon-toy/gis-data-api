@@ -16,4 +16,7 @@ public/ruraladdress/east.tsv
 package-lock.json
 public/transportation/zones
 s3params.json
+googleAuth.json
 package-lock.json
+*.env
+.vscode
