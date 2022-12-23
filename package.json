@@ -25,7 +25,7 @@
     "connect-multiparty": "^2.1.0",
     "csv-parse": "^5.3.0",
     "express": "^4.16.3",
-    "firebase-admin": "^8.6.0",
+    "firebase-admin": "^11.4.1",
     "formidable": "^1.2.2",
     "googleapis": "^108.0.0",
     "jsonfile": "^4.0.0",
