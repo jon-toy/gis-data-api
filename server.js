@@ -9,6 +9,7 @@ const sheriff = require("./app/controllers/sheriff.controller.js");
 const tyler = require("./app/controllers/tyler.controller.js");
 const AWS = require("aws-sdk");
 const s3 = new AWS.S3();
+const cors = require("cors");
 
 // Instantiate
 const app = express();
@@ -25,15 +26,21 @@ app.use(bodyParser.json());
 // GZIP Compression
 app.use(compression());
 
-// Allow CORS
-app.use(function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept"
-  );
-  next();
-});
+//Allow CORS local only
+// app.use(function (req, res, next) {
+//   res.header("Access-Control-Allow-Origin", "*");
+//   res.header(
+//     "Access-Control-Allow-Headers",
+//     "Origin, X-Requested-With, Content-Type, Accept",
+//   );
+//   next();
+// });
+
+app.use(
+  cors({
+    origin: ["https://jt.co.apache.az.us", "https://www.google.com/"],
+  }),
+);
 
 // Routes for maps
 require("./app/routes/map.routes.js")(app);
@@ -49,6 +56,7 @@ require("./app/routes/books.routes.js")(app);
 require("./app/routes/system.routes.js")(app);
 require("./app/routes/tyler.routes.js")(app);
 require("./app/routes/gmail.routes.js")(app);
+require("./app/routes/optional-layers.routes.js")(app);
 
 // Static files
 app.use(express.static(__dirname + "/public"));
@@ -71,6 +79,10 @@ function loadCacheOnStartup() {
   loadCacheSheriffRotation();
   loadCacheTylerData();
 
+  // Optional Layers
+  loadCacheOptionalLayersTrs();
+  loadCacheOptionalLayersVoter();
+
   function loadCacheZones() {
     loadZone(
       1,
@@ -78,7 +90,7 @@ function loadCacheOnStartup() {
       ["207.json", "209.json", "210.json"],
       35.1518,
       -109.5042,
-      13
+      13,
     );
     loadZone(
       2,
@@ -86,7 +98,7 @@ function loadCacheOnStartup() {
       ["205.json", "206.json", "208.json", "211.json"],
       34.951286499999995,
       -109.44762600000001,
-      13
+      13,
     );
     loadZone(3, "St John's North", ["204.json"], 34.7501, -109.1778, 13);
     loadZone(
@@ -95,7 +107,7 @@ function loadCacheOnStartup() {
       ["201.json", "212.json"],
       34.5180075,
       -109.69512700000001,
-      13
+      13,
     );
     loadZone(
       5,
@@ -103,7 +115,7 @@ function loadCacheOnStartup() {
       ["108.json", "202.json", "203.json"],
       34.384599,
       -109.29469749999998,
-      13
+      13,
     );
     loadZone(
       6,
@@ -111,7 +123,7 @@ function loadCacheOnStartup() {
       ["106.json", "107.json"],
       34.2367455,
       -109.68258000000003,
-      13
+      13,
     );
     loadZone(
       7,
@@ -119,7 +131,7 @@ function loadCacheOnStartup() {
       ["101.json", "102.json", "103.json", "104.json", "105.json"],
       34.1096,
       -109.2906,
-      13
+      13,
     );
 
     function loadZone(
@@ -128,7 +140,7 @@ function loadCacheOnStartup() {
       books,
       starting_lat,
       starting_lon,
-      starting_zoom
+      starting_zoom,
     ) {
       var zone = {};
       zone.num = num;
@@ -185,11 +197,11 @@ function loadCacheOnStartup() {
               if (feature.properties.NUMBER != null) {
                 redis_client.set(
                   normalizeAccountNumber(feature.properties.NUMBER),
-                  stringified
+                  stringified,
                 ); // By Account Number
               }
             }
-          }
+          },
         );
       }
     });
@@ -205,5 +217,69 @@ function loadCacheOnStartup() {
 
   function loadCacheTylerData() {
     tyler.readTylerDataIntoMemory();
+  }
+
+  function loadCacheOptionalLayersTrs() {
+    var params = {
+      Bucket: S3_BUCKET_NAME,
+      Delimiter: "/",
+      Prefix: "gis-data-api/optional-layers/trs/",
+    };
+
+    s3.listObjectsV2(params, (err, data) => {
+      for (var i = 0; i < data.Contents.length; i++) {
+        // Skip non JSONs
+        if (data.Contents[i].Key.indexOf("json") < 0) continue;
+        const s3Key = data.Contents[i].Key;
+
+        const filename = s3Key.split("/").pop();
+        const id = filename.replace(".json", "");
+
+        const redis_key = OPTIONAL_LAYERS_TRS_PREFIX + id;
+
+        s3.getObject(
+          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
+          function (err, data) {
+            if (err != null) {
+              console.log(err);
+            }
+
+            // Load the TRS JSON into Redis
+            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            console.log("Loaded Optional Layers - TRS - " + redis_key);
+          },
+        );
+      }
+    });
+  }
+
+  function loadCacheOptionalLayersVoter() {
+    var params = {
+      Bucket: S3_BUCKET_NAME,
+      Delimiter: "/",
+      Prefix: "gis-data-api/optional-layers/voter/",
+    };
+
+    s3.listObjectsV2(params, (err, data) => {
+      for (var i = 0; i < data.Contents.length; i++) {
+        // Skip non JSONs
+        if (data.Contents[i].Key.indexOf("json") < 0) continue;
+
+        const redis_key = OPTIONAL_LAYERS_VOTER_PREFIX;
+
+        s3.getObject(
+          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
+          function (err, data) {
+            if (err != null) {
+              console.log(err);
+            }
+
+            // Load the TRS JSON into Redis
+            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            console.log("Loaded Optional Layers - VOTER - " + redis_key);
+          },
+        );
+      }
+    });
   }
 }

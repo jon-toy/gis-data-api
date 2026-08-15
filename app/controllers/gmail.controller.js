@@ -62,7 +62,7 @@ async function getUser(req, res) {
 
 async function getCsvs(req, res) {
   try {
-    const QUERY = `after:2022/9/25 has:attachment OR has:drive`;
+    const QUERY = `after:2025/9/25 has:attachment OR has:drive`;
     let url = `https://www.googleapis.com/gmail/v1/users/me/messages?q=${QUERY}`;
     const { token } = await oAuth2Client.getAccessToken();
     let config = generateConfig(url, token);
@@ -82,11 +82,14 @@ async function getCsvs(req, res) {
       messagesFull.push(response.data);
     }
 
+    console.log(messages);
+
     let attachmentIds = {};
     let biggest = 0;
     for (var i = 0; i < messagesFull.length; i++) {
       for (var j = 0; j < messagesFull[i].payload.parts.length; j++) {
         if (messagesFull[i].payload.parts[j].filename.indexOf(".csv") >= 0) {
+          console.log(messagesFull[i]);
           const date = messagesFull[i].internalDate;
           if (date >= biggest) {
             // Get the latest one

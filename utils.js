@@ -12,9 +12,12 @@ module.exports = function () {
   this.EDIT_HISTORY_FILENAME = "edit_history.tsv";
   this.TYLER_DATA_FILENAME = "tyler.csv";
   this.TYLER_DATA_PREFIX = "TYLER_DATA_";
+  this.OPTIONAL_LAYERS = "OPTIONAL_LAYERS_";
+  this.OPTIONAL_LAYERS_TRS_PREFIX = this.OPTIONAL_LAYERS + "TRS_";
+  this.OPTIONAL_LAYERS_VOTER_PREFIX = this.OPTIONAL_LAYERS + "VOTER_";
 
   const googleParams = JSON.parse(
-    fs.readFileSync(__dirname + "/googleAuth.json")
+    fs.readFileSync(__dirname + "/googleAuth.json"),
   );
   this.GOOGLEAUTH = {
     type: "OAuth2",
