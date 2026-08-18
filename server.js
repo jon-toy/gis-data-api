@@ -38,7 +38,7 @@ app.use(compression());
 
 app.use(
   cors({
-    origin: ["https://jt.co.apache.az.us", "https://www.google.com/"],
+    origin: ["https://jt.co.apache.az.us"],
   }),
 );
 
