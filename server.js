@@ -36,11 +36,13 @@ app.use(compression());
 //   next();
 // });
 
-app.use(
-  cors({
-    origin: ["https://jt.co.apache.az.us"],
-  }),
-);
+const cors = require("cors");
+
+const corsOptions = {
+  origin: "https://jt.co.apache.az.us",
+};
+
+app.use(cors(corsOptions));
 
 // Routes for maps
 require("./app/routes/map.routes.js")(app);
