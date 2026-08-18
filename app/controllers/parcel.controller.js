@@ -56,9 +56,9 @@ exports.findOneParcelByAccountNumber = (req, res) => {
 };
 
 function augmentData(parcel, callback) {
-  console.log(parcel.properties);
-
   // Add Tyler Data
+
+  callback(parcel);
 
   return parcel;
 }
