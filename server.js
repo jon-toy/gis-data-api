@@ -36,8 +36,6 @@ app.use(compression());
 //   next();
 // });
 
-const cors = require("cors");
-
 const corsOptions = {
   origin: "https://jt.co.apache.az.us",
 };
