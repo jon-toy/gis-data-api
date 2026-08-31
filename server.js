@@ -82,6 +82,8 @@ function loadCacheOnStartup() {
   // Optional Layers
   loadCacheOptionalLayersTrs();
   loadCacheOptionalLayersVoter();
+  loadCacheOptionalLayersVDistrict();
+  loadCacheOptionalLayersZip();
 
   function loadCacheZones() {
     loadZone(
@@ -277,6 +279,74 @@ function loadCacheOnStartup() {
             // Load the TRS JSON into Redis
             redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
             console.log("Loaded Optional Layers - VOTER - " + redis_key);
+          },
+        );
+      }
+    });
+  }
+
+  function loadCacheOptionalLayersVDistrict() {
+    var params = {
+      Bucket: S3_BUCKET_NAME,
+      Delimiter: "/",
+      Prefix: "gis-data-api/optional-layers/vdistrict/",
+    };
+
+    s3.listObjectsV2(params, (err, data) => {
+      for (var i = 0; i < data.Contents.length; i++) {
+        // Skip non JSONs
+        if (data.Contents[i].Key.indexOf("json") < 0) continue;
+        const s3Key = data.Contents[i].Key;
+
+        const filename = s3Key.split("/").pop();
+        const id = filename.replace(".json", "");
+
+        const redis_key = OPTIONAL_LAYERS_VDISTRICT_PREFIX;
+
+        s3.getObject(
+          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
+          function (err, data) {
+            if (err != null) {
+              console.log(err);
+            }
+
+            // Load the TRS JSON into Redis
+            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            console.log("Loaded Optional Layers - V District - " + redis_key);
+          },
+        );
+      }
+    });
+  }
+
+  function loadCacheOptionalLayersZip() {
+    var params = {
+      Bucket: S3_BUCKET_NAME,
+      Delimiter: "/",
+      Prefix: "gis-data-api/optional-layers/zip/",
+    };
+
+    s3.listObjectsV2(params, (err, data) => {
+      for (var i = 0; i < data.Contents.length; i++) {
+        // Skip non JSONs
+        if (data.Contents[i].Key.indexOf("json") < 0) continue;
+        const s3Key = data.Contents[i].Key;
+
+        const filename = s3Key.split("/").pop();
+        const id = filename.replace(".json", "");
+
+        const redis_key = OPTIONAL_LAYERS_ZIP_PREFIX;
+
+        s3.getObject(
+          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
+          function (err, data) {
+            if (err != null) {
+              console.log(err);
+            }
+
+            // Load the TRS JSON into Redis
+            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            console.log("Loaded Optional Layers - Zip - " + redis_key);
           },
         );
       }

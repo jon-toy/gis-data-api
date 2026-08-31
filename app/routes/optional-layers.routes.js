@@ -6,4 +6,13 @@ module.exports = (app) => {
 
   // Voter
   app.get("/optional-layers/voter", optionalLayers.getOptionalLayersVoter);
+
+  // Voter District
+  app.get(
+    "/optional-layers/vdistrict",
+    optionalLayers.getOptionalLayersVDistrict,
+  );
+
+  // Zip
+  app.get("/optional-layers/zip", optionalLayers.getOptionalLayersZip);
 };

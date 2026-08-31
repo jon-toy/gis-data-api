@@ -26,3 +26,20 @@ exports.getOptionalLayersVoter = (req, res, next) => {
     res.send(result);
   });
 };
+
+exports.getOptionalLayersVDistrict = (req, res, next) => {
+  redis_client.get(OPTIONAL_LAYERS_VDISTRICT_PREFIX, (err, result) => {
+    // Convert from string to JSON
+    result = JSON.parse(result);
+    console.log("Got optional Layer VD");
+    res.send(result);
+  });
+};
+
+exports.getOptionalLayersZip = (req, res, next) => {
+  redis_client.get(OPTIONAL_LAYERS_ZIP_PREFIX, (err, result) => {
+    // Convert from string to JSON
+    result = JSON.parse(result);
+    res.send(result);
+  });
+};
