@@ -15,4 +15,7 @@ module.exports = (app) => {
 
   // Zip
   app.get("/optional-layers/zip", optionalLayers.getOptionalLayersZip);
+
+  // BKR
+  app.get("/optional-layers/bkr", optionalLayers.getOptionalLayersBkr);
 };
