@@ -45,7 +45,7 @@ exports.getOptionalLayersZip = (req, res, next) => {
 };
 
 exports.getOptionalLayersBkr = (req, res, next) => {
-  redis_client.get(OPTIONAL_LAYERS_ZIP_PREFIX, (err, result) => {
+  redis_client.get(OPTIONAL_LAYERS_BKR_PREFIX, (err, result) => {
     // Convert from string to JSON
     result = JSON.parse(result);
     res.send(result);
