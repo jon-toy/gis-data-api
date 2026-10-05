@@ -17,6 +17,7 @@ module.exports = function () {
   this.OPTIONAL_LAYERS_VOTER_PREFIX = this.OPTIONAL_LAYERS + "VOTER_";
   this.OPTIONAL_LAYERS_VDISTRICT_PREFIX = this.OPTIONAL_LAYERS + "VDIST_";
   this.OPTIONAL_LAYERS_ZIP_PREFIX = this.OPTIONAL_LAYERS + "ZIP_";
+  this.OPTIONAL_LAYERS_BKR_PREFIX = this.OPTIONAL_LAYERS + "BKR_";
 
   const googleParams = JSON.parse(
     fs.readFileSync(__dirname + "/googleAuth.json"),

@@ -84,6 +84,7 @@ function loadCacheOnStartup() {
   loadCacheOptionalLayersVoter();
   loadCacheOptionalLayersVDistrict();
   loadCacheOptionalLayersZip();
+  loadCacheOptionalLayersBkr();
 
   function loadCacheZones() {
     loadZone(
@@ -347,6 +348,40 @@ function loadCacheOnStartup() {
             // Load the TRS JSON into Redis
             redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
             console.log("Loaded Optional Layers - Zip - " + redis_key);
+          },
+        );
+      }
+    });
+  }
+
+  function loadCacheOptionalLayersBkr() {
+    var params = {
+      Bucket: S3_BUCKET_NAME,
+      Delimiter: "/",
+      Prefix: "gis-data-api/optional-layers/bkr/",
+    };
+
+    s3.listObjectsV2(params, (err, data) => {
+      for (var i = 0; i < data.Contents.length; i++) {
+        // Skip non JSONs
+        if (data.Contents[i].Key.indexOf("json") < 0) continue;
+        const s3Key = data.Contents[i].Key;
+
+        const filename = s3Key.split("/").pop();
+        const id = filename.replace(".json", "");
+
+        const redis_key = OPTIONAL_LAYERS_BKR_PREFIX;
+
+        s3.getObject(
+          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
+          function (err, data) {
+            if (err != null) {
+              console.log(err);
+            }
+
+            // Load the TRS JSON into Redis
+            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            console.log("Loaded Optional Layers - BKR - " + redis_key);
           },
         );
       }
