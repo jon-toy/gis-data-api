@@ -20,3 +20,4 @@ googleAuth.json
 package-lock.json
 *.env
 .vscode
+*.key

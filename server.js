@@ -173,6 +173,16 @@ function loadCacheOnStartup() {
     };
 
     s3.listObjectsV2(params, (err, data) => {
+      if (err) {
+        console.error("S3 listObjectsV2 failed:", err);
+        return;
+      }
+
+      if (!data || !Array.isArray(data.Contents)) {
+        console.error("Unexpected S3 response:", data);
+        return;
+      }
+
       for (var i = 0; i < data.Contents.length; i++) {
         // Skip non JSONs
         if (data.Contents[i].Key.indexOf("json") < 0) continue;
