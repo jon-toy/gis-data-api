@@ -1,7 +1,10 @@
 require("../../utils.js")();
 
 var redis = require("redis");
-var redis_client = redis.createClient();
+var redis_client = redis.createClient({ legacyMode: true });
+redis_client.connect().catch((err) => {
+  console.error("Parcel Redis connect failed:", err);
+});
 
 // Find a single parcel with a parcelNum
 exports.findOneParcel = (req, res) => {

@@ -4,7 +4,10 @@ require('../../utils.js')();
 var superagent_request = require("superagent");
 var fs = require('fs');
 var redis = require('redis');
-var redis_client = redis.createClient();
+var redis_client = redis.createClient({ legacyMode: true });
+redis_client.connect().catch((err) => {
+  console.error('Treasurer Redis connect failed:', err);
+});
 
 const UPLOAD_PASSWORD = 'apache_county_eggdrop1315';
 

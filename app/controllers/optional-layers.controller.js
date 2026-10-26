@@ -1,7 +1,10 @@
 require("../../utils.js")();
 
 var redis = require("redis");
-var redis_client = redis.createClient();
+var redis_client = redis.createClient({ legacyMode: true });
+redis_client.connect().catch((err) => {
+  console.error("Optional layers Redis connect failed:", err);
+});
 
 exports.getOptionalLayersTrs = (req, res, next) => {
   if (!req.params.zoneNum) {

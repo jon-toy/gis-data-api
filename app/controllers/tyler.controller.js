@@ -2,7 +2,10 @@ require("../../utils.js")();
 var csv_parser = require("csv-parse/sync");
 var fs = require("fs");
 var redis = require("redis");
-var redis_client = redis.createClient();
+var redis_client = redis.createClient({ legacyMode: true });
+redis_client.connect().catch((err) => {
+  console.error("Tyler Redis connect failed:", err);
+});
 var formidable = require("formidable");
 
 var edit_history_parcels = [];

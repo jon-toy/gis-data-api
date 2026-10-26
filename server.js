@@ -2,9 +2,9 @@
 const compression = require("compression");
 const express = require("express");
 const bodyParser = require("body-parser");
-const multiparty = require("connect-multiparty");
 const redis = require("redis");
-const redis_client = redis.createClient();
+const redis_client = redis.createClient({ legacyMode: true });
+redis_client.on("error", (err) => console.error("Redis Client Error", err));
 const sheriff = require("./app/controllers/sheriff.controller.js");
 const tyler = require("./app/controllers/tyler.controller.js");
 const AWS = require("aws-sdk");
@@ -65,12 +65,15 @@ app.use(express.static(__dirname + "/public"));
 require("./utils.js")(app);
 
 // Load GeoJSON cache on startup
-loadCacheOnStartup();
+(async () => {
+  await redis_client.connect();
+  loadCacheOnStartup();
 
-// listen for requests
-app.listen(3001, () => {
-  console.log("Server is listening on port 3001");
-});
+  // listen for requests
+  app.listen(3001, () => {
+    console.log("Server is listening on port 3001");
+  });
+})();
 
 function loadCacheOnStartup() {
   loadCacheZones();

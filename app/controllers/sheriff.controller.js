@@ -2,7 +2,10 @@ require("../../utils.js")();
 
 var fs = require("fs");
 var redis = require("redis");
-var redis_client = redis.createClient();
+var redis_client = redis.createClient({ legacyMode: true });
+redis_client.connect().catch((err) => {
+  console.error("Sheriff Redis connect failed:", err);
+});
 
 var edit_history_parcels = [];
 

@@ -5,7 +5,10 @@ var superagent_request = require("superagent");
 var formidable = require("formidable");
 var fs = require("fs");
 var redis = require("redis");
-var redis_client = redis.createClient();
+var redis_client = redis.createClient({ legacyMode: true });
+redis_client.connect().catch((err) => {
+  console.error("Map Redis connect failed:", err);
+});
 
 const UPLOAD_PASSWORD = "apache_county_eggdrop1315";
 const AWS = require("aws-sdk");

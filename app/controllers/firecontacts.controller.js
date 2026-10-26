@@ -1,16 +1,16 @@
 
 
 // Update all Fire Contacts
-const request = require('request');
 const admin = require("firebase-admin");
+const { getDatabase } = require("firebase-admin/database");
 var serviceAccount = require("../../apachecountyfirecontact-firebase-adminsdk-rpwly-7322c88f60.json");
 
 admin.initializeApp({
-credential: admin.credential.cert(serviceAccount),
-databaseURL: "https://apachecountyfirecontact.firebaseio.com"
+  credential: admin.cert(serviceAccount),
+  databaseURL: "https://apachecountyfirecontact.firebaseio.com"
 });
 
-var db = admin.database();
+var db = getDatabase();
 var ref = db.ref("fire/contacts");
 
 exports.update = (req, res, next) => {

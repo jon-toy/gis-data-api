@@ -1,5 +1,8 @@
 var redis = require('redis');
-var redis_client = redis.createClient();
+var redis_client = redis.createClient({ legacyMode: true });
+redis_client.connect().catch((err) => {
+  console.error('Zone Redis connect failed:', err);
+});
 
 const ZONE_BOOK_LIST_KEY_PREFIX = "ZONE_BOOK_LIST_"
 
