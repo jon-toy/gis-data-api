@@ -7,8 +7,7 @@ const redis_client = redis.createClient({ legacyMode: true });
 redis_client.on("error", (err) => console.error("Redis Client Error", err));
 const sheriff = require("./app/controllers/sheriff.controller.js");
 const tyler = require("./app/controllers/tyler.controller.js");
-const AWS = require("aws-sdk");
-const s3 = new AWS.S3();
+const s3 = require("./aws-s3-client");
 const cors = require("cors");
 
 // Instantiate
@@ -20,8 +19,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // parse requests of content-type - application/json
 app.use(bodyParser.json());
 
-// Multipart post data parser
-//app.use(multiparty());
+// Do not parse multipart uploads globally; Formidable handles those routes directly.
 
 // GZIP Compression
 app.use(compression());
@@ -197,7 +195,39 @@ function loadCacheOnStartup() {
               console.log(err);
             }
 
-            const obj = JSON.parse(data.Body.toString());
+            if (!data || data.Body == null) {
+              console.warn(
+                "Skipping parcel cache item with empty S3 body:",
+                data,
+              );
+              return;
+            }
+
+            const rawBody =
+              data && data.Body != null ? data.Body.toString() : "";
+            if (!rawBody || !rawBody.trim()) {
+              return;
+            }
+
+            let obj;
+            try {
+              obj = JSON.parse(rawBody);
+            } catch (parseErr) {
+              console.warn(
+                "Skipping parcel cache item with invalid JSON:",
+                data && data.Key,
+                parseErr.message,
+              );
+              return;
+            }
+
+            if (!obj || !Array.isArray(obj.features)) {
+              console.warn(
+                "Skipping parcel cache item without a valid feature array:",
+                data && data.Key,
+              );
+              return;
+            }
 
             // Load the JSON into Redis
             for (var j = 0; j < obj.features.length; j++) {
@@ -243,6 +273,16 @@ function loadCacheOnStartup() {
     };
 
     s3.listObjectsV2(params, (err, data) => {
+      if (err) {
+        console.error("S3 listObjectsV2 failed for optional layers TRS:", err);
+        return;
+      }
+
+      if (!data || !Array.isArray(data.Contents)) {
+        console.error("Unexpected S3 response for optional layers TRS:", data);
+        return;
+      }
+
       for (var i = 0; i < data.Contents.length; i++) {
         // Skip non JSONs
         if (data.Contents[i].Key.indexOf("json") < 0) continue;
@@ -260,8 +300,33 @@ function loadCacheOnStartup() {
               console.log(err);
             }
 
+            if (!data || data.Body == null) {
+              console.warn(
+                "Skipping optional layer payload with empty S3 body:",
+                data,
+              );
+              return;
+            }
+
+            const rawBody =
+              data && data.Body != null ? data.Body.toString() : "";
+            if (!rawBody || !rawBody.trim()) {
+              return;
+            }
+
+            try {
+              JSON.parse(rawBody);
+            } catch (parseErr) {
+              console.warn(
+                "Skipping optional layer payload with invalid JSON:",
+                data && data.Key,
+                parseErr.message,
+              );
+              return;
+            }
+
             // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            redis_client.set(redis_key, JSON.stringify(rawBody));
             console.log("Loaded Optional Layers - TRS - " + redis_key);
           },
         );
@@ -277,6 +342,22 @@ function loadCacheOnStartup() {
     };
 
     s3.listObjectsV2(params, (err, data) => {
+      if (err) {
+        console.error(
+          "S3 listObjectsV2 failed for optional layers Voter:",
+          err,
+        );
+        return;
+      }
+
+      if (!data || !Array.isArray(data.Contents)) {
+        console.error(
+          "Unexpected S3 response for optional layers Voter:",
+          data,
+        );
+        return;
+      }
+
       for (var i = 0; i < data.Contents.length; i++) {
         // Skip non JSONs
         if (data.Contents[i].Key.indexOf("json") < 0) continue;
@@ -290,8 +371,33 @@ function loadCacheOnStartup() {
               console.log(err);
             }
 
+            if (!data || data.Body == null) {
+              console.warn(
+                "Skipping Voter layer payload with empty S3 body:",
+                data,
+              );
+              return;
+            }
+
+            const rawBody =
+              data && data.Body != null ? data.Body.toString() : "";
+            if (!rawBody || !rawBody.trim()) {
+              return;
+            }
+
+            try {
+              JSON.parse(rawBody);
+            } catch (parseErr) {
+              console.warn(
+                "Skipping Voter layer payload with invalid JSON:",
+                data && data.Key,
+                parseErr.message,
+              );
+              return;
+            }
+
             // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            redis_client.set(redis_key, JSON.stringify(rawBody));
             console.log("Loaded Optional Layers - VOTER - " + redis_key);
           },
         );
@@ -307,6 +413,22 @@ function loadCacheOnStartup() {
     };
 
     s3.listObjectsV2(params, (err, data) => {
+      if (err) {
+        console.error(
+          "S3 listObjectsV2 failed for optional layers VDistrict:",
+          err,
+        );
+        return;
+      }
+
+      if (!data || !Array.isArray(data.Contents)) {
+        console.error(
+          "Unexpected S3 response for optional layers VDistrict:",
+          data,
+        );
+        return;
+      }
+
       for (var i = 0; i < data.Contents.length; i++) {
         // Skip non JSONs
         if (data.Contents[i].Key.indexOf("json") < 0) continue;
@@ -324,8 +446,33 @@ function loadCacheOnStartup() {
               console.log(err);
             }
 
+            if (!data || data.Body == null) {
+              console.warn(
+                "Skipping VDistrict payload with empty S3 body:",
+                data,
+              );
+              return;
+            }
+
+            const rawBody =
+              data && data.Body != null ? data.Body.toString() : "";
+            if (!rawBody || !rawBody.trim()) {
+              return;
+            }
+
+            try {
+              JSON.parse(rawBody);
+            } catch (parseErr) {
+              console.warn(
+                "Skipping VDistrict payload with invalid JSON:",
+                data && data.Key,
+                parseErr.message,
+              );
+              return;
+            }
+
             // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            redis_client.set(redis_key, JSON.stringify(rawBody));
             console.log("Loaded Optional Layers - V District - " + redis_key);
           },
         );
@@ -341,6 +488,16 @@ function loadCacheOnStartup() {
     };
 
     s3.listObjectsV2(params, (err, data) => {
+      if (err) {
+        console.error("S3 listObjectsV2 failed for optional layers Zip:", err);
+        return;
+      }
+
+      if (!data || !Array.isArray(data.Contents)) {
+        console.error("Unexpected S3 response for optional layers Zip:", data);
+        return;
+      }
+
       for (var i = 0; i < data.Contents.length; i++) {
         // Skip non JSONs
         if (data.Contents[i].Key.indexOf("json") < 0) continue;
@@ -358,8 +515,33 @@ function loadCacheOnStartup() {
               console.log(err);
             }
 
+            if (!data || data.Body == null) {
+              console.warn(
+                "Skipping Zip layer payload with empty S3 body:",
+                data,
+              );
+              return;
+            }
+
+            const rawBody =
+              data && data.Body != null ? data.Body.toString() : "";
+            if (!rawBody || !rawBody.trim()) {
+              return;
+            }
+
+            try {
+              JSON.parse(rawBody);
+            } catch (parseErr) {
+              console.warn(
+                "Skipping Zip layer payload with invalid JSON:",
+                data && data.Key,
+                parseErr.message,
+              );
+              return;
+            }
+
             // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            redis_client.set(redis_key, JSON.stringify(rawBody));
             console.log("Loaded Optional Layers - Zip - " + redis_key);
           },
         );
@@ -375,6 +557,16 @@ function loadCacheOnStartup() {
     };
 
     s3.listObjectsV2(params, (err, data) => {
+      if (err) {
+        console.error("S3 listObjectsV2 failed for optional layers BKR:", err);
+        return;
+      }
+
+      if (!data || !Array.isArray(data.Contents)) {
+        console.error("Unexpected S3 response for optional layers BKR:", data);
+        return;
+      }
+
       for (var i = 0; i < data.Contents.length; i++) {
         // Skip non JSONs
         if (data.Contents[i].Key.indexOf("json") < 0) continue;
@@ -392,8 +584,33 @@ function loadCacheOnStartup() {
               console.log(err);
             }
 
+            if (!data || data.Body == null) {
+              console.warn(
+                "Skipping BKR layer payload with empty S3 body:",
+                data,
+              );
+              return;
+            }
+
+            const rawBody =
+              data && data.Body != null ? data.Body.toString() : "";
+            if (!rawBody || !rawBody.trim()) {
+              return;
+            }
+
+            try {
+              JSON.parse(rawBody);
+            } catch (parseErr) {
+              console.warn(
+                "Skipping BKR layer payload with invalid JSON:",
+                data && data.Key,
+                parseErr.message,
+              );
+              return;
+            }
+
             // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(data.Body.toString()));
+            redis_client.set(redis_key, JSON.stringify(rawBody));
             console.log("Loaded Optional Layers - BKR - " + redis_key);
           },
         );

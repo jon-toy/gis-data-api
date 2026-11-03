@@ -3,14 +3,13 @@ const { google } = require("googleapis");
 const fs = require("fs");
 const Readable = require("stream").Readable;
 require("../../utils.js")();
-const AWS = require("aws-sdk");
-const s3 = new AWS.S3();
+const s3 = require("../../aws-s3-client");
 const tyler = require("./tyler.controller.js");
 
 const oAuth2Client = new google.auth.OAuth2(
   GOOGLEAUTH.clientId,
   GOOGLEAUTH.clientSecret,
-  GOOGLEAUTH.redirectUri
+  GOOGLEAUTH.redirectUri,
 );
 oAuth2Client.setCredentials({ refresh_token: GOOGLEAUTH.refreshToken });
 
@@ -122,7 +121,7 @@ async function getCsvs(req, res) {
             "S3 file is newer than email attachment. Skipping. Attachment Time: " +
               biggest +
               " S3 Last Modified: " +
-              Date.parse(data.Contents[i].LastModified)
+              Date.parse(data.Contents[i].LastModified),
           );
           res.send({});
           return;

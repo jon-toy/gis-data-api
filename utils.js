@@ -38,11 +38,7 @@ module.exports = function () {
   this.S3_SECRET = s3Params.secret;
   this.S3_BUCKET_NAME = s3Params.bucketName;
 
-  const AWS = require("aws-sdk");
-  const s3 = new AWS.S3({
-    accessKeyId: S3_ACCESS,
-    secretAccessKey: S3_SECRET,
-  });
+  const s3 = require("./aws-s3-client");
 
   this.uploadJSONToS3 = (relativeFilePath, fileContent, uploadCallback) => {
     // Setting up S3 upload parameters

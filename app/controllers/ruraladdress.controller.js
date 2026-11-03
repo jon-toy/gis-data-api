@@ -3,15 +3,14 @@ var sheriff = require("./sheriff.controller.js");
 
 // Convert to a GeoJSON
 var superagent_request = require("superagent");
-var formidable = require("formidable");
+var { IncomingForm } = require("formidable");
 var fs = require("fs");
 var redis = require("redis");
 var redis_client = redis.createClient({ legacyMode: true });
 redis_client.connect().catch((err) => {
   console.error("Ruraladdress Redis connect failed:", err);
 });
-const AWS = require("aws-sdk");
-const s3 = new AWS.S3();
+const s3 = require("../../aws-s3-client");
 
 const UPLOAD_PASSWORD = "apache_county_eggdrop1315";
 
@@ -64,7 +63,7 @@ exports.getZoneEditHistory = (req, res, next) => {
         result = result.filter((parcel) => parcel.edits.length > 0); // Only show parcels that fit this criteria
       }
       res.send(result);
-    }
+    },
   );
 };
 
@@ -80,7 +79,7 @@ exports.getZoneRotations = (req, res, next) => {
       // Convert from string to JSON
       result = JSON.parse(result);
       res.send(result);
-    }
+    },
   );
 };
 
@@ -108,8 +107,52 @@ exports.getZonesEditHistory = (req, res) => {
   });
 };
 
+function unwrapUploadedFile(value) {
+  if (!value) return null;
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const unwrapped = unwrapUploadedFile(entry);
+      if (unwrapped) return unwrapped;
+    }
+    return null;
+  }
+
+  if (
+    typeof value === "object" &&
+    (value.filepath ||
+      value.path ||
+      value.originalFilename ||
+      value.newFilename ||
+      value.name ||
+      value.size !== undefined)
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeFile(file) {
+  const candidate = unwrapUploadedFile(file);
+  if (!candidate) return null;
+
+  const normalized = { ...candidate };
+  normalized.path = normalized.path || normalized.filepath || null;
+  normalized.name =
+    normalized.name ||
+    normalized.originalFilename ||
+    normalized.newFilename ||
+    "upload";
+  return normalized;
+}
+
 function handleResponse(req, res) {
-  const form = formidable({ keepExtensions: true });
+  const form = new IncomingForm({
+    keepExtensions: true,
+    allowEmptyFiles: true,
+    minFileSize: 0,
+  });
 
   form.parse(req, (err, fields, files) => {
     if (err) {
@@ -125,14 +168,28 @@ function handleResponse(req, res) {
 
     const folderName = fields.zoneName;
 
+    const markers = normalizeFile(files.markers || files["markers"]);
+    const parcels = normalizeFile(files.parcels || files["parcels"]);
+    const roads = normalizeFile(files.roads || files["roads"]);
+    const water = normalizeFile(files.water || files["water"]);
+    const text = normalizeFile(files.text || files["text"]);
+    const history = normalizeFile(files.history || files["history"]);
+    const rotation = normalizeFile(files.rotation || files["rotation"]);
+
+    const hasNonEmptyFile = (file) => {
+      if (!file) return false;
+      const candidate = Array.isArray(file) ? file[0] : file;
+      return Number(candidate && candidate.size ? candidate.size : 0) > 0;
+    };
+
     if (
-      !files.markers.size > 0 &&
-      !files.parcels.size > 0 &&
-      !files.roads.size > 0 &&
-      !files.water.size > 0 &&
-      !files.text.size > 0 &&
-      !files.history.size > 0 &&
-      !files.rotation.size > 0
+      !hasNonEmptyFile(markers) &&
+      !hasNonEmptyFile(parcels) &&
+      !hasNonEmptyFile(roads) &&
+      !hasNonEmptyFile(water) &&
+      !hasNonEmptyFile(text) &&
+      !hasNonEmptyFile(history) &&
+      !hasNonEmptyFile(rotation)
     ) {
       res.status(400).json({ error: true, msg: "No file provided" });
       return;
@@ -143,30 +200,49 @@ function handleResponse(req, res) {
     if (password != UPLOAD_PASSWORD)
       return res.json({ message: "Invalid Password" });
 
-    if (files.markers.size > 0)
-      convertAndWrite(folderName, "markers.json", files.markers);
-    if (files.parcels.size > 0)
-      convertAndWrite(folderName, "parcels.json", files.parcels);
-    if (files.water.size > 0)
-      convertAndWrite(folderName, "water.json", files.water);
-    if (files.roads.size > 0)
-      convertAndWrite(folderName, "roads.json", files.roads);
-    if (files.text.size > 0)
-      convertAndWrite(folderName, "text.json", files.text);
+    const firstNonEmpty = (file) => {
+      if (!file) return null;
+      return Array.isArray(file)
+        ? file.find(
+            (entry) => Number(entry && entry.size ? entry.size : 0) > 0,
+          ) || file[0]
+        : file;
+    };
 
-    if (files.history.size > 0) handleEditHistory(folderName, files.history);
-    if (files.rotation.size > 0) handleRotation(folderName, files.rotation);
+    const markerFile = firstNonEmpty(markers);
+    const parcelFile = firstNonEmpty(parcels);
+    const waterFile = firstNonEmpty(water);
+    const roadFile = firstNonEmpty(roads);
+    const textFile = firstNonEmpty(text);
+    const historyFile = firstNonEmpty(history);
+    const rotationFile = firstNonEmpty(rotation);
+
+    if (markerFile) convertAndWrite(folderName, "markers.json", markerFile);
+    if (parcelFile) convertAndWrite(folderName, "parcels.json", parcelFile);
+    if (waterFile) convertAndWrite(folderName, "water.json", waterFile);
+    if (roadFile) convertAndWrite(folderName, "roads.json", roadFile);
+    if (textFile) convertAndWrite(folderName, "text.json", textFile);
+
+    if (historyFile) handleEditHistory(folderName, historyFile);
+    if (rotationFile) handleRotation(folderName, rotationFile);
 
     return res.json({ message: "Writing in directory " + folderName });
   });
 }
 
 function convertAndWrite(folderName, fileName, data) {
+  const filePath = data && (data.path || data.filepath);
+
   superagent_request
     .post("http://ogre.adc4gis.com/convert")
     .field("sourceSrs", "")
     .field("targetSrs", "")
-    .attach("upload", data.path)
+    .attach(
+      "upload",
+      filePath,
+      data &&
+        (data.originalFilename || data.name || data.newFilename || fileName),
+    )
     .end(function (er, res) {
       if (er) return console.error(er);
 
@@ -177,32 +253,37 @@ function convertAndWrite(folderName, fileName, data) {
           if (err) {
             return console.log(err);
           }
-        }
+        },
       );
     });
 }
 
 function handleEditHistory(fileName, file) {
+  const filePath = file && (file.path || file.filepath);
+
   // Write to S3
-  uploadFileToS3(
+  uploadFileAtPathToS3(
     "ruraladdress/" + fileName + ".tsv",
-    file,
+    filePath,
     function (err, data) {
-      if (!err) sheriff.readEditHistoryIntoMemory(file);
+      if (!err) sheriff.readEditHistoryIntoMemory(filePath);
       else console.error(err);
-    }
+    },
   );
 }
 
 function handleRotation(fileName, file) {
+  const filePath = file && (file.path || file.filepath);
+  const rotationDir = __dirname + "/../../public/ruraladdress/rotation";
+
   // Write to S3
-  uploadFileToS3(
+  uploadFileAtPathToS3(
     "ruraladdress/rotation" + fileName + ".tsv",
-    file,
+    filePath,
     function (err, data) {
-      if (!err) sheriff.readRotationIntoMemory(file);
+      if (!err) sheriff.readRotationIntoMemory(rotationDir);
       else console.error(err);
-    }
+    },
   );
 }
 
@@ -250,7 +331,7 @@ exports.getMetaData = (req, res) => {
           var zoneFile = {};
           zoneFile.name = filteredObject.Key.replace(
             zones_prefix + zone + "/",
-            ""
+            "",
           );
           zoneFile.lastModified = filteredObject.LastModified;
           zoneRet.files.push(zoneFile);

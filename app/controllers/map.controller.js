@@ -2,7 +2,7 @@ require("../../utils.js")();
 
 // Convert to a GeoJSON
 var superagent_request = require("superagent");
-var formidable = require("formidable");
+var { IncomingForm } = require("formidable");
 var fs = require("fs");
 var redis = require("redis");
 var redis_client = redis.createClient({ legacyMode: true });
@@ -11,30 +11,109 @@ redis_client.connect().catch((err) => {
 });
 
 const UPLOAD_PASSWORD = "apache_county_eggdrop1315";
-const AWS = require("aws-sdk");
+const s3 = require("../../aws-s3-client");
 
-const s3 = new AWS.S3({
-  accessKeyId: S3_ACCESS,
-  secretAccessKey: S3_SECRET,
-});
+function unwrapUploadedFile(value) {
+  if (!value) return null;
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const unwrapped = unwrapUploadedFile(entry);
+      if (unwrapped) return unwrapped;
+    }
+    return null;
+  }
+
+  if (
+    typeof value === "object" &&
+    (value.filepath ||
+      value.path ||
+      value.originalFilename ||
+      value.newFilename ||
+      value.name ||
+      value.size !== undefined)
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function getUploadedFile(files) {
+  if (!files) return null;
+
+  for (const key of ["file", "upload"]) {
+    const file = files[key];
+    const unwrapped = unwrapUploadedFile(file);
+    if (unwrapped) return unwrapped;
+  }
+
+  for (const value of Object.values(files)) {
+    const unwrapped = unwrapUploadedFile(value);
+    if (unwrapped) return unwrapped;
+  }
+
+  return null;
+}
 
 exports.convertBook = (req, res, next) => {
   // parse a file upload
-  const form = formidable({ keepExtensions: true });
+  const form = new IncomingForm({
+    keepExtensions: true,
+    allowEmptyFiles: true,
+    minFileSize: 0,
+  });
 
   form.parse(req, (err, fields, files) => {
     if (err) {
+      console.error("Formidable upload parse error:", err);
       res.writeHead(err.httpCode || 400, { "Content-Type": "text/plain" });
       res.end(String(err));
       return;
     }
+
+    const uploadedFile = getUploadedFile(files);
+    const passwordValue = Array.isArray(fields.password)
+      ? fields.password[0]
+      : fields.password;
+    console.log(
+      "uploaded file keys:",
+      files ? Object.keys(files) : [],
+      "fields:",
+      Object.keys(fields || {}),
+    );
+    if (
+      !uploadedFile ||
+      !(
+        uploadedFile.originalFilename ||
+        uploadedFile.name ||
+        uploadedFile.newFilename
+      )
+    ) {
+      console.error("Upload rejected: no valid file in multipart payload", {
+        files,
+        fields,
+      });
+      res.status(400).json({ error: true, msg: "No file provided" });
+      return;
+    }
+
+    if (Number(uploadedFile.size || 0) <= 0) {
+      console.error("Upload rejected: empty file payload", {
+        size: uploadedFile.size,
+        fields,
+      });
+      res.status(400).json({ error: true, msg: "File is empty" });
+      return;
+    }
+
     return convertToGeoJson(
       req,
       res,
       next,
       "books",
-      files.file,
-      fields.password
+      uploadedFile,
+      passwordValue,
     );
   });
 };
@@ -113,16 +192,25 @@ function convertToGeoJson(req, res, next, folder_name, file, password) {
 
   var data = file;
   console.log(file);
-  var file_name = data.name.replace(".zip", ".json");
+  const originalName =
+    data.originalFilename || data.name || data.newFilename || "upload.zip";
+  const filePath = data.filepath || data.path || "";
+  var file_name = originalName.replace(".zip", ".json");
 
   if (password != UPLOAD_PASSWORD)
     return res.json({ message: "Invalid Password" });
+
+  if (!filePath) {
+    return res
+      .status(400)
+      .json({ error: true, msg: "Uploaded file path missing" });
+  }
 
   superagent_request
     .post("http://ogre.adc4gis.com/convert")
     .field("sourceSrs", "")
     .field("targetSrs", "")
-    .attach("upload", data.path)
+    .attach("upload", filePath, originalName)
     .end((er, s_res) => {
       if (er) return console.error(er);
 
@@ -150,14 +238,14 @@ function convertToGeoJson(req, res, next, folder_name, file, password) {
           //console.log("Writing " + feature.properties.PARCEL_NUM + " to Redis");
           redis_client.set(
             normalizeParcelNumber(feature.properties.PARCEL_NUM),
-            JSON.stringify(feature)
+            JSON.stringify(feature),
           );
         }
 
         if (feature.properties.NUMBER != null) {
           redis_client.set(
             normalizeAccountNumber(feature.properties.NUMBER),
-            JSON.stringify(feature)
+            JSON.stringify(feature),
           );
         }
       }
@@ -184,7 +272,7 @@ function convertToGeoJson(req, res, next, folder_name, file, password) {
           } else {
             res.json({ message: "The file was saved as " + file_name });
           }
-        }
+        },
       );
     });
 

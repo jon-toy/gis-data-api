@@ -6,20 +6,23 @@ var redis_client = redis.createClient({ legacyMode: true });
 redis_client.connect().catch((err) => {
   console.error("Tyler Redis connect failed:", err);
 });
-var formidable = require("formidable");
+var { IncomingForm } = require("formidable");
 
 var edit_history_parcels = [];
 
 const UPLOAD_PASSWORD = "apache_county_eggdrop1315";
-const AWS = require("aws-sdk");
-const s3 = new AWS.S3();
+const s3 = require("../../aws-s3-client");
 
 exports.postTylerData = (req, res, next) => {
   return parseTylerDataCsvFile(req, res, next, "tyler");
 };
 
 function parseTylerDataCsvFile(req, res, next, folder_name) {
-  const form = formidable({ keepExtensions: true });
+  const form = new IncomingForm({
+    keepExtensions: true,
+    allowEmptyFiles: true,
+    minFileSize: 0,
+  });
 
   form.parse(req, (err, fields, files) => {
     if (err) {
@@ -28,17 +31,22 @@ function parseTylerDataCsvFile(req, res, next, folder_name) {
       return;
     }
 
-    if (!files.file) {
+    const uploadedFile = files.file || files.upload || Object.values(files)[0];
+    if (!uploadedFile || !uploadedFile.name) {
       res.status(400).json({ error: true, msg: "No CSV File provided" });
       return;
     }
 
-    var data = files.file;
+    var data = Array.isArray(uploadedFile) ? uploadedFile[0] : uploadedFile;
+    if (Number(data.size || 0) <= 0) {
+      res.status(400).json({ error: true, msg: "File is empty" });
+      return;
+    }
 
     var file_name =
       __dirname + "/../../public/" + folder_name + "/" + TYLER_DATA_FILENAME;
     console.log(
-      "Uploaded Tyler data. Saving as " + folder_name + "/" + data.name
+      "Uploaded Tyler data. Saving as " + folder_name + "/" + data.name,
     );
 
     fs.readFile(data.path, "utf8", function (err, contents) {
@@ -49,7 +57,7 @@ function parseTylerDataCsvFile(req, res, next, folder_name) {
         function (err, data) {
           if (!err) exports.readTylerDataIntoMemory(data);
           else console.error(err);
-        }
+        },
       );
 
       // Load into memory
@@ -82,9 +90,23 @@ exports.readTylerDataIntoMemory = () => {
             return;
           }
 
+          if (!data || data.Body == null) {
+            console.warn("Skipping Tyler payload with empty S3 body:", data);
+            return;
+          }
+
+          const csvText = data.Body.toString();
+          if (!csvText || !csvText.trim()) {
+            console.warn(
+              "Skipping Tyler payload with empty CSV content:",
+              data && data.Key,
+            );
+            return;
+          }
+
           // Read the CSV file
           // Initialize the parser
-          const records = csv_parser.parse(data.Body.toString(), {
+          const records = csv_parser.parse(csvText, {
             columns: true,
             skip_empty_lines: true,
             raw: true,
@@ -109,12 +131,12 @@ exports.readTylerDataIntoMemory = () => {
 
             redis_client.set(
               TYLER_DATA_PREFIX + json["Parcel Number"],
-              JSON.stringify(json)
+              JSON.stringify(json),
             );
           }
 
           console.log("Loaded Tyler.csv data");
-        }
+        },
       );
     }
   });

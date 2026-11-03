@@ -2,6 +2,7 @@ require("../../utils.js")();
 
 var fs = require("fs");
 var redis = require("redis");
+var { IncomingForm } = require("formidable");
 var redis_client = redis.createClient({ legacyMode: true });
 redis_client.connect().catch((err) => {
   console.error("Sheriff Redis connect failed:", err);
@@ -10,50 +11,121 @@ redis_client.connect().catch((err) => {
 var edit_history_parcels = [];
 
 const UPLOAD_PASSWORD = "apache_county_eggdrop1315";
-const AWS = require("aws-sdk");
-const s3 = new AWS.S3();
+const s3 = require("../../aws-s3-client");
 
 exports.convertEditReport = (req, res, next) => {
   return parseEditReportCsvFile(req, res, next, "sheriff");
 };
 
-function parseEditReportCsvFile(req, res, next, folder_name) {
-  if (!req.files.file || !req.files.file.name) {
-    res.status(400).json({ error: true, msg: "No file provided" });
-    return;
+function unwrapUploadedFile(value) {
+  if (!value) return null;
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const unwrapped = unwrapUploadedFile(entry);
+      if (unwrapped) return unwrapped;
+    }
+    return null;
   }
 
-  var data = req.files.file;
-  var password = req.body.password;
+  if (
+    typeof value === "object" &&
+    (value.filepath ||
+      value.path ||
+      value.originalFilename ||
+      value.newFilename ||
+      value.name ||
+      value.size !== undefined)
+  ) {
+    return value;
+  }
 
-  if (password != UPLOAD_PASSWORD)
-    return res.json({ message: "Invalid Password" });
+  return null;
+}
 
-  var file_name =
-    __dirname + "/../../public/" + folder_name + "/" + EDIT_HISTORY_FILENAME;
-  console.log(
-    "Uploaded sheriff edit history export. Saving as " +
-      folder_name +
-      "/" +
-      data.name
-  );
+function getUploadedFile(files) {
+  if (!files) return null;
 
-  // Save a copy to S3
-  fs.readFile(data.path, "utf8", function (err, contents) {
-    uploadFileToS3(
-      "ruraladdress/" + EDIT_HISTORY_FILENAME,
-      contents,
-      function (err, data) {
-        if (!err) exports.readEditHistoryIntoMemory(data);
-        else console.error(err);
-      }
-    );
+  for (const key of ["file", "upload"]) {
+    const file = unwrapUploadedFile(files[key]);
+    if (file) return file;
+  }
+
+  for (const value of Object.values(files)) {
+    const file = unwrapUploadedFile(value);
+    if (file) return file;
+  }
+
+  return null;
+}
+
+function parseEditReportCsvFile(req, res, next, folder_name) {
+  const form = new IncomingForm({
+    keepExtensions: true,
+    allowEmptyFiles: true,
+    minFileSize: 0,
   });
 
-  // Load into memory
-  exports.readEditHistoryIntoMemory(data.path);
+  form.parse(req, (err, fields, files) => {
+    if (err) {
+      res.writeHead(err.httpCode || 400, { "Content-Type": "text/plain" });
+      res.end(String(err));
+      return;
+    }
 
-  return res.json({ message: "The file was saved as " + file_name });
+    const data = getUploadedFile(files);
+    if (!data) {
+      res.status(400).json({ error: true, msg: "No file provided" });
+      return;
+    }
+
+    if (Number(data.size || 0) <= 0) {
+      res.status(400).json({ error: true, msg: "File is empty" });
+      return;
+    }
+
+    const password = fields.password;
+    if (password != UPLOAD_PASSWORD) {
+      return res.json({ message: "Invalid Password" });
+    }
+
+    const filePath = data.filepath || data.path;
+    const originalFilename =
+      data.originalFilename || data.name || data.newFilename;
+    const file_name =
+      __dirname + "/../../public/" + folder_name + "/" + EDIT_HISTORY_FILENAME;
+    console.log(
+      "Uploaded sheriff edit history export. Saving as " +
+        folder_name +
+        "/" +
+        originalFilename,
+    );
+
+    // Save a copy to S3
+    fs.readFile(filePath, "utf8", function (err, contents) {
+      if (err) {
+        console.error("Sheriff file read failed:", err);
+        res
+          .status(500)
+          .json({ error: true, msg: "Failed to read uploaded file" });
+        return;
+      }
+
+      uploadFileToS3(
+        "ruraladdress/" + EDIT_HISTORY_FILENAME,
+        { path: filePath },
+        function (err, data) {
+          if (!err) exports.readEditHistoryIntoMemory(filePath);
+          else console.error(err);
+        },
+      );
+    });
+
+    // Load into memory
+    exports.readEditHistoryIntoMemory(filePath);
+
+    return res.json({ message: "The file was saved as " + file_name });
+  });
 }
 
 exports.readEditHistoryIntoMemory = (folder) => {
@@ -64,6 +136,22 @@ exports.readEditHistoryIntoMemory = (folder) => {
   };
 
   s3.listObjectsV2(params, (err, data) => {
+    if (err) {
+      console.error(
+        "S3 listObjectsV2 failed in sheriff readEditHistoryIntoMemory:",
+        err,
+      );
+      return;
+    }
+
+    if (!data || !Array.isArray(data.Contents)) {
+      console.error(
+        "Unexpected S3 response in sheriff readEditHistoryIntoMemory:",
+        data,
+      );
+      return;
+    }
+
     for (var i = 0; i < data.Contents.length; i++) {
       // Skip rotation folder
       var file = data.Contents[i].Key.replace("gis-data-api/ruraladdress/", "");
@@ -116,7 +204,7 @@ exports.readEditHistoryIntoMemory = (folder) => {
                 // Length is 10
                 var dateStringRaw = fields[index].substring(
                   text.length - 10,
-                  text.length
+                  text.length,
                 );
 
                 var date = dateStringRaw.replace("(", "").replace(")", "");
@@ -146,7 +234,7 @@ exports.readEditHistoryIntoMemory = (folder) => {
           // Set in redis
           redis_client.set(
             SHERIFF_EDIT_HISTORY_PREFIX + account.apn,
-            JSON.stringify(account)
+            JSON.stringify(account),
           );
         },
         (fileName, zone_edit_history_parcels) => {
@@ -154,27 +242,43 @@ exports.readEditHistoryIntoMemory = (folder) => {
           if (zone_edit_history_parcels.length <= 0) return;
 
           console.log(
-            "Creating zone object for zone: " + fileName.replace(".tsv", "")
+            "Creating zone object for zone: " + fileName.replace(".tsv", ""),
           );
           const debug = zone_edit_history_parcels.find(
-            (element) => element.apn === "204-61-514"
+            (element) => element.apn === "204-61-514",
           );
           console.log("Number of parcels: " + zone_edit_history_parcels.length);
 
           redis_client.set(
             ZONE_EDIT_HISTORY_PREFIX + fileName.replace(".tsv", ""),
-            JSON.stringify(zone_edit_history_parcels)
+            JSON.stringify(zone_edit_history_parcels),
           );
-        }
+        },
       );
     }
   });
 };
 
 exports.readRotationIntoMemory = (folder) => {
+  if (!folder || typeof folder !== "string") return;
   if (fs.existsSync(folder) == false) return;
 
+  try {
+    const stats = fs.statSync(folder);
+    if (!stats.isDirectory()) return;
+  } catch (err) {
+    console.warn("Rotation directory unavailable:", err.message);
+    return;
+  }
+
   fs.readdir(folder, (err, files) => {
+    if (err) {
+      console.warn("Could not read rotation directory:", err.message);
+      return;
+    }
+
+    if (!Array.isArray(files)) return;
+
     files.forEach((file) => {
       var rotations = [];
       var input = fs.createReadStream(folder + "/" + file);
@@ -197,15 +301,15 @@ exports.readRotationIntoMemory = (folder) => {
           if (rotations.length <= 0) return;
 
           console.log(
-            "Loading rotations for zone: " + fileName.replace(".tsv", "")
+            "Loading rotations for zone: " + fileName.replace(".tsv", ""),
           );
           console.log(rotations);
 
           redis_client.set(
             ZONE_ROTATION_PREFIX + fileName.replace(".tsv", ""),
-            JSON.stringify(rotations)
+            JSON.stringify(rotations),
           );
-        }
+        },
       );
     });
   });

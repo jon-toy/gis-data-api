@@ -1,5 +1,3 @@
-
-
 // Update all Fire Contacts
 const admin = require("firebase-admin");
 const { getDatabase } = require("firebase-admin/database");
@@ -7,23 +5,27 @@ var serviceAccount = require("../../apachecountyfirecontact-firebase-adminsdk-rp
 
 admin.initializeApp({
   credential: admin.cert(serviceAccount),
-  databaseURL: "https://apachecountyfirecontact.firebaseio.com"
+  databaseURL: "https://apachecountyfirecontact.firebaseio.com",
 });
 
 var db = getDatabase();
 var ref = db.ref("fire/contacts");
 
 exports.update = (req, res, next) => {
-    ref.set(req.body);
-    res.send({success:"true"});
+  ref.set(req.body);
+  res.send({ success: "true" });
 };
 
 // Get all Fire Contacts
 exports.list = (req, res, next) => {
-    // Attach an asynchronous callback to read the data at our posts reference
-    ref.on("value", function(snapshot) {
-        res.send(snapshot.val());
-    }, function (errorObject) {
-        res.status(500).send("The read failed: " + errorObject.code);
-    });
+  // Attach an asynchronous callback to read the data at our posts reference
+  ref.on(
+    "value",
+    function (snapshot) {
+      res.send(snapshot.val());
+    },
+    function (errorObject) {
+      res.status(500).send("The read failed: " + errorObject.code);
+    },
+  );
 };

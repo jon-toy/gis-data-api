@@ -1,6 +1,5 @@
 require("../../utils.js")();
-const AWS = require("aws-sdk");
-const s3 = new AWS.S3();
+const s3 = require("../../aws-s3-client");
 
 exports.findParcelsForZone = (req, res, next) => {
   findForZone(req, res, "parcels.json");
