@@ -17,6 +17,8 @@ const sheriff = require("./app/controllers/sheriff.controller.js");
 const tyler = require("./app/controllers/tyler.controller.js");
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const WRITE_BATCH_SIZE = 25;
+const WRITE_PAUSE_MS = 50;
 
 const setRedisValueWithTimeout = async (redisKey, value, timeoutMs = 15000) => {
   const setPromise = redis_client.set(redisKey, value);
@@ -32,6 +34,7 @@ const setRedisValueWithTimeout = async (redisKey, value, timeoutMs = 15000) => {
   });
 
   await Promise.race([setPromise, timeoutPromise]);
+  await delay(WRITE_PAUSE_MS);
 };
 
 async function loadCacheZones() {
@@ -228,7 +231,7 @@ async function loadCacheParcels() {
               });
             }
 
-            if (writeQueue.length >= 250) {
+            if (writeQueue.length >= WRITE_BATCH_SIZE) {
               const batch = writeQueue.splice(0, writeQueue.length);
               for (const entry of batch) {
                 await setRedisValueWithTimeout(
@@ -283,17 +286,27 @@ async function runWarmCache() {
     { name: "loadCacheParcels", fn: loadCacheParcels },
     {
       name: "loadCacheSheriffEditHistory",
-      fn: () =>
-        sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress"),
+      fn: async () => {
+        await sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress");
+        await delay(250);
+      },
     },
     {
       name: "loadCacheSheriffRotation",
-      fn: () =>
-        sheriff.readRotationIntoMemory(
+      fn: async () => {
+        await sheriff.readRotationIntoMemory(
           __dirname + "/public/ruraladdress/rotation",
-        ),
+        );
+        await delay(250);
+      },
     },
-    { name: "loadCacheTylerData", fn: () => tyler.readTylerDataIntoMemory() },
+    {
+      name: "loadCacheTylerData",
+      fn: async () => {
+        await tyler.readTylerDataIntoMemory();
+        await delay(250);
+      },
+    },
   ];
 
   for (const loader of loaders) {
