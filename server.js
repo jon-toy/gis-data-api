@@ -283,7 +283,7 @@ async function loadCacheOnStartup() {
       };
 
       async function writeRedisEntries(entries, s3Key) {
-        const chunkSize = 100;
+        const chunkSize = 250;
         for (let start = 0; start < entries.length; start += chunkSize) {
           const chunk = entries.slice(start, start + chunkSize);
           for (const { redisKey, value } of chunk) {
@@ -361,41 +361,58 @@ async function loadCacheOnStartup() {
               continue;
             }
 
-            const writes = [];
-            for (var j = 0; j < obj.features.length; j++) {
-              var feature = obj.features[j];
+            const writeQueue = [];
+            const sampleParcelIds = [];
+            let fileRedisEntriesWritten = 0;
 
-              if (feature.properties.PARCEL_NUM == null) continue;
+            const flushWriteQueue = async () => {
+              if (writeQueue.length === 0) return;
 
-              var parcelLabel = String(
+              const batch = writeQueue.splice(0, writeQueue.length);
+              await writeRedisEntries(batch, s3Key);
+
+              fileRedisEntriesWritten += batch.length;
+              totalRedisEntriesWritten += batch.length;
+            };
+
+            for (let j = 0; j < obj.features.length; j++) {
+              const feature = obj.features[j];
+              if (!feature || !feature.properties || feature.properties.PARCEL_NUM == null) {
+                continue;
+              }
+
+              const parcelLabel = String(
                 feature.properties.PARCEL_NUM ??
                   feature.properties.NUMBER ??
                   `feature-${j}`,
               );
-              var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
-              var stringified = JSON.stringify(feature);
-              writes.push({ redisKey: key, value: stringified, parcelLabel });
+              const key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
+              const stringified = JSON.stringify(feature);
+
+              writeQueue.push({ redisKey: key, value: stringified, parcelLabel });
+              if (sampleParcelIds.length < 5) {
+                sampleParcelIds.push(parcelLabel);
+              }
 
               if (feature.properties.NUMBER != null) {
-                writes.push({
+                writeQueue.push({
                   redisKey: normalizeAccountNumber(feature.properties.NUMBER),
                   value: stringified,
                   parcelLabel,
                 });
               }
+
+              if (writeQueue.length >= 250) {
+                await flushWriteQueue();
+              }
             }
 
+            await flushWriteQueue();
+
             console.log(
-              `Parcel warmup writing ${writes.length} Redis entries for ${s3Key}; sample parcel ids=${
-                writes
-                  .slice(0, 5)
-                  .map((entry) => entry.parcelLabel)
-                  .join(", ") || "n/a"
-              }`,
+              `Parcel warmup writing ${fileRedisEntriesWritten} Redis entries for ${s3Key}; sample parcel ids=${sampleParcelIds.join(", ") || "n/a"}`,
             );
 
-            await writeRedisEntries(writes, s3Key);
-            totalRedisEntriesWritten += writes.length;
             completedParcelFiles += 1;
             console.log(
               `Finished parcel warmup file ${s3Key}; total processed files=${completedParcelFiles}/${parcelFiles.length}; total Redis entries written=${totalRedisEntriesWritten}`,
