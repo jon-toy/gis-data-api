@@ -97,11 +97,27 @@ async function writeOptionalLayerValue(redisKey, rawBody, label) {
 
 let redisReady = false;
 
+function shouldWarmCacheOnStartup() {
+  if (process.env.SKIP_CACHE_WARMUP === "true") {
+    return false;
+  }
+
+  if (process.env.CACHE_WARMUP === "true") {
+    return true;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
+  return true;
+}
+
 async function ensureRedisReady() {
   try {
     await ensureRedisConnected();
     redisReady = true;
-    if (process.env.SKIP_CACHE_WARMUP !== "true") {
+    if (shouldWarmCacheOnStartup()) {
       console.log("Starting cache warmup sequence");
       setImmediate(() => {
         loadCacheOnStartup()
@@ -114,14 +130,16 @@ async function ensureRedisReady() {
           });
       });
     } else {
-      console.log("Cache warmup skipped by SKIP_CACHE_WARMUP");
+      console.log(
+        "Cache warmup skipped by default in production. Set CACHE_WARMUP=true to populate Redis on startup.",
+      );
       console.log("All Startup Complete");
     }
   } catch (err) {
     console.error("Redis startup warmup failed:", err);
     console.warn(
       "Continuing without Redis cache warmup so the API can still start. " +
-        "Set SKIP_CACHE_WARMUP=true to skip explicitly.",
+        "Set CACHE_WARMUP=true to enable it explicitly.",
     );
     console.log("All Startup Complete");
   }

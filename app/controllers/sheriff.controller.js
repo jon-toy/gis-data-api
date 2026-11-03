@@ -248,14 +248,12 @@ exports.readEditHistoryIntoMemory = (folder) => {
 
               for (let index = 0; index < zone_edit_history_parcels.length; index += 25) {
                 const chunk = zone_edit_history_parcels.slice(index, index + 25);
-                await Promise.all(
-                  chunk.map((account) =>
-                    redis_client.set(
-                      SHERIFF_EDIT_HISTORY_PREFIX + account.apn,
-                      JSON.stringify(account),
-                    ),
-                  ),
-                );
+                for (const account of chunk) {
+                  await redis_client.set(
+                    SHERIFF_EDIT_HISTORY_PREFIX + account.apn,
+                    JSON.stringify(account),
+                  );
+                }
               }
 
               await redis_client.set(zoneKey, zonePayload);
