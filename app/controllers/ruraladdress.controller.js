@@ -93,8 +93,17 @@ exports.getZonesEditHistory = (req, res) => {
   };
 
   s3.listObjectsV2(params, (err, data) => {
-    var ret = {};
-    ret.zones = [];
+    var ret = { zones: [] };
+
+    if (err) {
+      console.error("Unable to list rural address zones from S3:", err);
+      return res.send(ret);
+    }
+
+    if (!data || !Array.isArray(data.Contents)) {
+      console.warn("No rural address zone metadata found in S3:", data);
+      return res.send(ret);
+    }
 
     data.Contents.forEach((file) => {
       var zone = {};
@@ -298,6 +307,16 @@ exports.getMetaData = (req, res) => {
   // Get all objects in a bucket
   s3.listObjectsV2(params, (err, data) => {
     var files = [];
+
+    if (err) {
+      console.error("Unable to list rural address zones from S3:", err);
+      return res.send([]);
+    }
+
+    if (!data || !Array.isArray(data.Contents)) {
+      console.warn("No rural address zone files found in S3:", data);
+      return res.send([]);
+    }
 
     // Get all the files that are part of the zones folder
     data.Contents.forEach((object) => {

@@ -289,6 +289,17 @@ exports.listBook = (req, res, next) => {
 
   s3.listObjectsV2(params, (err, data) => {
     var map_files = [];
+
+    if (err) {
+      console.error("Unable to list map books from S3:", err);
+      return res.json({ num: "ALL", name: "All", books: [] });
+    }
+
+    if (!data || !Array.isArray(data.Contents)) {
+      console.warn("No map books found in S3:", data);
+      return res.json({ num: "ALL", name: "All", books: [] });
+    }
+
     for (var i = 0; i < data.Contents.length; i++) {
       const fileName = data.Contents[i].Key.replace("gis-data-api/books/", "");
 

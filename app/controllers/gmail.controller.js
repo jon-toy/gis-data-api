@@ -111,6 +111,16 @@ async function getCsvs(req, res) {
     };
 
     s3.listObjectsV2(params, (err, data) => {
+      if (err) {
+        console.error("Unable to list Tyler files from S3 for Gmail sync:", err);
+        return res.send({});
+      }
+
+      if (!data || !Array.isArray(data.Contents)) {
+        console.warn("No Tyler files available in S3 for Gmail sync:", data);
+        return res.send({});
+      }
+
       for (var i = 0; i < data.Contents.length; i++) {
         // Skip any file not called tyler.csv
         var file = data.Contents[i].Key.replace("gis-data-api/tyler/", "");
