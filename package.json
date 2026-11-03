@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "warm-cache": "node warm-cache.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
