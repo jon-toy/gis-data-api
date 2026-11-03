@@ -106,11 +106,7 @@ function shouldWarmCacheOnStartup() {
     return true;
   }
 
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-
-  return true;
+  return false;
 }
 
 async function ensureRedisReady() {
@@ -131,7 +127,7 @@ async function ensureRedisReady() {
       });
     } else {
       console.log(
-        "Cache warmup skipped by default in production. Set CACHE_WARMUP=true to populate Redis on startup.",
+        "Cache warmup disabled by default to protect low-memory production hosts. Set CACHE_WARMUP=true only for a deliberate cache rebuild.",
       );
       console.log("All Startup Complete");
     }
