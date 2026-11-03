@@ -112,7 +112,10 @@ async function getCsvs(req, res) {
 
     s3.listObjectsV2(params, (err, data) => {
       if (err) {
-        console.error("Unable to list Tyler files from S3 for Gmail sync:", err);
+        console.error(
+          "Unable to list Tyler files from S3 for Gmail sync:",
+          err,
+        );
         return res.send({});
       }
 

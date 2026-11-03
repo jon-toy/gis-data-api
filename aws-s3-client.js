@@ -14,12 +14,13 @@ const { Upload } = require("@aws-sdk/lib-storage");
 const s3Params = JSON.parse(fs.readFileSync(__dirname + "/s3params.json"));
 
 const configuredRegion = s3Params.region || "us-east-1";
-const configuredEndpoint = s3Params.endpoint || null;
-const forcePathStyle = Boolean(configuredEndpoint);
+const configuredEndpoint =
+  s3Params.endpoint || `https://s3.${configuredRegion}.amazonaws.com`;
+const forcePathStyle = true;
 
 const s3Client = new S3Client({
   region: configuredRegion,
-  endpoint: configuredEndpoint || undefined,
+  endpoint: configuredEndpoint,
   forcePathStyle,
   credentials: {
     accessKeyId: s3Params.accessId,
