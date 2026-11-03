@@ -132,9 +132,19 @@ exports.readTylerDataIntoMemory = () => {
                     bom: true,
                   });
 
-                  const writes = [];
+                  const batch = [];
+                  const flushBatch = async () => {
+                    if (batch.length === 0) return;
+                    await Promise.all(
+                      batch.map(([redisKey, value]) => redis_client.set(redisKey, value)),
+                    );
+                    batch.length = 0;
+                  };
+
                   for (var i = 0; i < records.length; i++) {
                     var record = records[i];
+                    if (!record || !record.record) continue;
+
                     var json = record.record;
                     json.raw = record.raw;
 
@@ -144,28 +154,32 @@ exports.readTylerDataIntoMemory = () => {
                       if (dateArray[0].length < 2)
                         dateArray[0] = "0" + dateArray[0];
                       if (dateArray[1].length < 2)
-                        dateArray[0] = "0" + dateArray[0];
+                        dateArray[1] = "0" + dateArray[1];
                       if (dateArray[2].length === 4)
                         dateArray[2] = dateArray[2].substring(2, 4);
                       json.lastUploaded = dateArray.join("/");
                     }
 
-                    writes.push([
-                      TYLER_DATA_PREFIX + json["Parcel Number"],
+                    const parcelNumber = json["Parcel Number"];
+                    if (parcelNumber == null || String(parcelNumber).trim() === "") {
+                      continue;
+                    }
+
+                    batch.push([
+                      TYLER_DATA_PREFIX + parcelNumber,
                       JSON.stringify(json),
                     ]);
-                  }
 
-                  console.log(
-                    `Tyler warmup writing ${writes.length} keys from ${item.Key}`,
-                  );
-
-                  for (let index = 0; index < writes.length; index += 25) {
-                    const chunk = writes.slice(index, index + 25);
-                    for (const [redisKey, value] of chunk) {
-                      await redis_client.set(redisKey, value);
+                    if (batch.length >= 25) {
+                      await flushBatch();
                     }
                   }
+
+                  await flushBatch();
+
+                  console.log(
+                    `Tyler warmup flushed ${records.length} CSV rows from ${item.Key}`,
+                  );
 
                   console.log(`Loaded Tyler.csv data from ${item.Key}`);
                   innerResolve();
