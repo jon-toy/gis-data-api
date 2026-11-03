@@ -1,39 +1,32 @@
-var redis = require("redis");
-var redis_client = redis.createClient({ legacyMode: true });
-redis_client.connect().catch((err) => {
-  console.error("Zone Redis connect failed:", err);
-});
+const { client: redis_client } = require("../../redis-client");
 
 const ZONE_BOOK_LIST_KEY_PREFIX = "ZONE_BOOK_LIST_";
 
 // Find a list of books for a given zone
-exports.findBooksForZone = (req, res) => {
+exports.findBooksForZone = async (req, res) => {
   var zone_num = req.params.zoneNum;
   var key = ZONE_BOOK_LIST_KEY_PREFIX + zone_num;
 
-  redis_client.get(key, function (error, result) {
-    if (error) {
-      console.log(error);
-      throw error;
-    }
+  try {
+    const result = await redis_client.get(key);
 
     if (result == null)
       return res.status(404).send("Zone " + zone_num + " Not Found");
 
-    res.send(JSON.parse(result));
-  });
+    return res.send(JSON.parse(result));
+  } catch (error) {
+    console.error("Unable to load books for zone:", zone_num, error);
+    return res.status(500).json({ error: true, msg: "Unable to load zone books" });
+  }
 };
 
 // Find a zone for a given book
-exports.findZoneForBook = (req, res) => {
+exports.findZoneForBook = async (req, res) => {
   var book_num = req.params.bookNum;
   var key = BOOK_ZONE_KEY_PREFIX + book_num;
 
-  redis_client.get(key, function (error, result) {
-    if (error) {
-      console.log(error);
-      throw error;
-    }
+  try {
+    const result = await redis_client.get(key);
 
     if (result == null) {
       var error = {};
@@ -43,6 +36,9 @@ exports.findZoneForBook = (req, res) => {
 
     var response = {};
     response.zone = result;
-    res.send(response);
-  });
+    return res.send(response);
+  } catch (error) {
+    console.error("Unable to load zone for book:", book_num, error);
+    return res.status(500).json({ error: true, msg: "Unable to load zone" });
+  }
 };

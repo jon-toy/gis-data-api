@@ -1,10 +1,19 @@
+const nodeMajor = Number.parseInt(process.versions.node.split(".")[0], 10);
+if (nodeMajor !== 22) {
+  console.error(
+    `FATAL: this app requires Node 22.x. Current version: ${process.version}. Run: source ~/.nvm/nvm.sh && nvm use 22 && npm start`,
+  );
+  process.exit(1);
+}
+
 // Import
 const compression = require("compression");
 const express = require("express");
 const bodyParser = require("body-parser");
-const redis = require("redis");
-const redis_client = redis.createClient({ legacyMode: true });
-redis_client.on("error", (err) => console.error("Redis Client Error", err));
+const {
+  client: redis_client,
+  ensureRedisConnected,
+} = require("./redis-client");
 const sheriff = require("./app/controllers/sheriff.controller.js");
 const tyler = require("./app/controllers/tyler.controller.js");
 const s3 = require("./aws-s3-client");
@@ -62,33 +71,130 @@ app.use(express.static(__dirname + "/public"));
 // Utils
 require("./utils.js")(app);
 
-// Load GeoJSON cache on startup
-(async () => {
-  await redis_client.connect();
-  loadCacheOnStartup();
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const setRedisValueWithTimeout = async (redisKey, value, timeoutMs = 15000) => {
+  const setPromise = redis_client.set(redisKey, value);
+  const timeoutPromise = new Promise((_, reject) => {
+    const timer = setTimeout(() => {
+      console.error(
+        `Redis set timeout after ${timeoutMs}ms for key ${String(redisKey).slice(0, 160)}`,
+      );
+      reject(new Error(`Redis set timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
 
-  // listen for requests
-  app.listen(3001, () => {
-    console.log("Server is listening on port 3001");
+    setPromise.finally(() => clearTimeout(timer));
   });
-})();
 
-function loadCacheOnStartup() {
-  loadCacheZones();
-  loadCacheParcels();
-  loadCacheSheriffEditHistory();
-  loadCacheSheriffRotation();
-  loadCacheTylerData();
+  await Promise.race([setPromise, timeoutPromise]);
+};
 
-  // Optional Layers
-  loadCacheOptionalLayersTrs();
-  loadCacheOptionalLayersVoter();
-  loadCacheOptionalLayersVDistrict();
-  loadCacheOptionalLayersZip();
-  loadCacheOptionalLayersBkr();
+async function writeOptionalLayerValue(redisKey, rawBody, label) {
+  const valueToStore =
+    typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody);
 
-  function loadCacheZones() {
-    loadZone(
+  await setRedisValueWithTimeout(redisKey, valueToStore, 15000);
+}
+
+let redisReady = false;
+
+async function ensureRedisReady() {
+  try {
+    await ensureRedisConnected();
+    redisReady = true;
+    if (process.env.SKIP_CACHE_WARMUP !== "true") {
+      console.log("Starting cache warmup sequence");
+      setImmediate(() => {
+        loadCacheOnStartup()
+          .then(() => {
+            console.log("Cache warmup sequence complete");
+            console.log("All Startup Complete");
+          })
+          .catch((err) => {
+            console.error("Cache warmup sequence failed:", err);
+          });
+      });
+    } else {
+      console.log("Cache warmup skipped by SKIP_CACHE_WARMUP");
+      console.log("All Startup Complete");
+    }
+  } catch (err) {
+    console.error("Redis startup warmup failed:", err);
+    console.warn(
+      "Continuing without Redis cache warmup so the API can still start. " +
+        "Set SKIP_CACHE_WARMUP=true to skip explicitly.",
+    );
+    console.log("All Startup Complete");
+  }
+}
+
+// Start listening immediately so local development is not blocked by the Redis warmup.
+app.listen(3001, () => {
+  console.log("Server is listening on port 3001");
+});
+
+ensureRedisReady();
+
+async function loadCacheOnStartup() {
+  const loaders = [
+    () => loadCacheZones(),
+    () => loadCacheParcels(),
+    () => loadCacheSheriffEditHistory(),
+    () => loadCacheSheriffRotation(),
+    () => loadCacheTylerData(),
+    () => loadCacheOptionalLayersTrs(),
+    () => loadCacheOptionalLayersVoter(),
+    () => loadCacheOptionalLayersVDistrict(),
+    () => loadCacheOptionalLayersZip(),
+    () => loadCacheOptionalLayersBkr(),
+  ];
+
+  const summary = [];
+
+  for (const [index, loader] of loaders.entries()) {
+    const loaderName =
+      [
+        "loadCacheZones",
+        "loadCacheParcels",
+        "loadCacheSheriffEditHistory",
+        "loadCacheSheriffRotation",
+        "loadCacheTylerData",
+        "loadCacheOptionalLayersTrs",
+        "loadCacheOptionalLayersVoter",
+        "loadCacheOptionalLayersVDistrict",
+        "loadCacheOptionalLayersZip",
+        "loadCacheOptionalLayersBkr",
+      ][index] || `loader-${index}`;
+
+    try {
+      console.log(`Starting cache warmup: ${loaderName}`);
+      const startedAt = Date.now();
+      await loader();
+      const elapsedMs = Date.now() - startedAt;
+      summary.push({ name: loaderName, elapsedMs });
+      console.log(`Finished cache warmup: ${loaderName} in ${elapsedMs}ms`);
+      await delay(250);
+    } catch (err) {
+      summary.push({
+        name: loaderName,
+        elapsedMs: null,
+        error: err.message || String(err),
+      });
+      console.error(`Cache loader failed: ${loaderName}`, err);
+    }
+  }
+
+  console.log("Cache warmup summary:");
+  for (const entry of summary) {
+    if (entry.elapsedMs == null) {
+      console.log(`- ${entry.name}: failed (${entry.error})`);
+    } else {
+      console.log(`- ${entry.name}: ${entry.elapsedMs}ms`);
+    }
+  }
+  console.log("Background cache warmup finished");
+
+  async function loadCacheZones() {
+    await loadZone(
       1,
       "Sanders",
       ["207.json", "209.json", "210.json"],
@@ -96,7 +202,7 @@ function loadCacheOnStartup() {
       -109.5042,
       13,
     );
-    loadZone(
+    await loadZone(
       2,
       "Sanders South",
       ["205.json", "206.json", "208.json", "211.json"],
@@ -104,8 +210,8 @@ function loadCacheOnStartup() {
       -109.44762600000001,
       13,
     );
-    loadZone(3, "St John's North", ["204.json"], 34.7501, -109.1778, 13);
-    loadZone(
+    await loadZone(3, "St John's North", ["204.json"], 34.7501, -109.1778, 13);
+    await loadZone(
       4,
       "Concho",
       ["201.json", "212.json"],
@@ -113,7 +219,7 @@ function loadCacheOnStartup() {
       -109.69512700000001,
       13,
     );
-    loadZone(
+    await loadZone(
       5,
       "St John's",
       ["108.json", "202.json", "203.json"],
@@ -121,7 +227,7 @@ function loadCacheOnStartup() {
       -109.29469749999998,
       13,
     );
-    loadZone(
+    await loadZone(
       6,
       "Vernon",
       ["106.json", "107.json"],
@@ -129,7 +235,7 @@ function loadCacheOnStartup() {
       -109.68258000000003,
       13,
     );
-    loadZone(
+    await loadZone(
       7,
       "Springerville/Eagar",
       ["101.json", "102.json", "103.json", "104.json", "105.json"],
@@ -138,7 +244,7 @@ function loadCacheOnStartup() {
       13,
     );
 
-    function loadZone(
+    async function loadZone(
       num,
       name,
       books,
@@ -154,467 +260,605 @@ function loadCacheOnStartup() {
       zone.starting_lon = starting_lon;
       zone.starting_zoom = starting_zoom;
 
+      if (!redisReady) return;
+
       var key = ZONE_BOOK_LIST_KEY_PREFIX + zone.num;
-      redis_client.set(key, JSON.stringify(zone));
+      await setRedisValueWithTimeout(key, JSON.stringify(zone), 15000);
 
       // Load book to zone keys
       for (var i = 0; i < books.length; i++) {
         var book_name = books[i].replace(".json", "");
         var book_key = BOOK_ZONE_KEY_PREFIX + book_name;
-        redis_client.set(book_key, num);
+        await setRedisValueWithTimeout(book_key, String(num), 15000);
       }
     }
   }
 
   function loadCacheParcels() {
-    var params = {
-      Bucket: S3_BUCKET_NAME,
-      Delimiter: "/",
-      Prefix: "gis-data-api/books/",
-    };
+    return new Promise((resolve) => {
+      var params = {
+        Bucket: S3_BUCKET_NAME,
+        Delimiter: "/",
+        Prefix: "gis-data-api/books/",
+      };
 
-    s3.listObjectsV2(params, (err, data) => {
-      if (err) {
-        console.error("S3 listObjectsV2 failed:", err);
-        return;
-      }
-
-      if (!data || !Array.isArray(data.Contents)) {
-        console.error("Unexpected S3 response:", data);
-        return;
-      }
-
-      for (var i = 0; i < data.Contents.length; i++) {
-        // Skip non JSONs
-        if (data.Contents[i].Key.indexOf("json") < 0) continue;
-
-        s3.getObject(
-          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
-          function (err, data) {
-            if (err != null) {
-              console.log(err);
-            }
-
-            if (!data || data.Body == null) {
-              console.warn(
-                "Skipping parcel cache item with empty S3 body:",
-                data,
-              );
-              return;
-            }
-
-            const rawBody =
-              data && data.Body != null ? data.Body.toString() : "";
-            if (!rawBody || !rawBody.trim()) {
-              return;
-            }
-
-            let obj;
+      async function writeRedisEntries(entries, s3Key) {
+        const chunkSize = 100;
+        for (let start = 0; start < entries.length; start += chunkSize) {
+          const chunk = entries.slice(start, start + chunkSize);
+          for (const { redisKey, value } of chunk) {
             try {
-              obj = JSON.parse(rawBody);
-            } catch (parseErr) {
-              console.warn(
-                "Skipping parcel cache item with invalid JSON:",
-                data && data.Key,
-                parseErr.message,
+              await setRedisValueWithTimeout(redisKey, value, 15000);
+            } catch (error) {
+              console.error(
+                `Parcel warmup write failed for ${s3Key} key ${redisKey}:`,
+                error && error.message ? error.message : error,
               );
-              return;
             }
-
-            if (!obj || !Array.isArray(obj.features)) {
-              console.warn(
-                "Skipping parcel cache item without a valid feature array:",
-                data && data.Key,
-              );
-              return;
-            }
-
-            // Load the JSON into Redis
-            for (var j = 0; j < obj.features.length; j++) {
-              var feature = obj.features[j];
-
-              if (feature.properties.PARCEL_NUM == null) continue; // Skip parcels that have no number
-
-              var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
-
-              var stringified = JSON.stringify(feature);
-              redis_client.set(key, stringified); // By Parcel Number
-
-              if (feature.properties.NUMBER != null) {
-                redis_client.set(
-                  normalizeAccountNumber(feature.properties.NUMBER),
-                  stringified,
-                ); // By Account Number
-              }
-            }
-          },
-        );
+          }
+        }
       }
+
+      s3.listObjectsV2(params, async (err, data) => {
+        if (err) {
+          console.error("S3 listObjectsV2 failed:", err);
+          resolve();
+          return;
+        }
+
+        if (!data || !Array.isArray(data.Contents)) {
+          console.error("Unexpected S3 response:", data);
+          resolve();
+          return;
+        }
+
+        const tasks = [];
+        const parcelFiles = data.Contents.filter(
+          (item) => item.Key.indexOf("json") >= 0,
+        );
+        let totalRedisEntriesWritten = 0;
+        let completedParcelFiles = 0;
+
+        for (var i = 0; i < parcelFiles.length; i++) {
+          const s3Key = parcelFiles[i].Key;
+
+          tasks.push(
+            new Promise((innerResolve) => {
+              s3.getObject(
+                { Bucket: S3_BUCKET_NAME, Key: s3Key },
+                function (err, data) {
+                  if (err != null) {
+                    console.log(`Parcel warmup failed for ${s3Key}:`, err);
+                    innerResolve();
+                    return;
+                  }
+
+                  if (!data || data.Body == null) {
+                    console.warn(
+                      `Parcel warmup skipping empty body for ${s3Key}`,
+                    );
+                    innerResolve();
+                    return;
+                  }
+
+                  const rawBody =
+                    data && data.Body != null ? data.Body.toString() : "";
+                  if (!rawBody || !rawBody.trim()) {
+                    console.warn(
+                      `Parcel warmup skipping empty JSON for ${s3Key}`,
+                    );
+                    innerResolve();
+                    return;
+                  }
+
+                  let obj;
+                  try {
+                    obj = JSON.parse(rawBody);
+                  } catch (parseErr) {
+                    console.warn(
+                      `Parcel warmup invalid JSON in ${s3Key}:`,
+                      parseErr.message,
+                    );
+                    innerResolve();
+                    return;
+                  }
+
+                  if (!obj || !Array.isArray(obj.features)) {
+                    console.warn(
+                      `Parcel warmup skipping non-feature payload for ${s3Key}`,
+                    );
+                    innerResolve();
+                    return;
+                  }
+
+                  const writes = [];
+                  for (var j = 0; j < obj.features.length; j++) {
+                    var feature = obj.features[j];
+
+                    if (feature.properties.PARCEL_NUM == null) continue;
+
+                    var parcelLabel = String(
+                      feature.properties.PARCEL_NUM ??
+                        feature.properties.NUMBER ??
+                        `feature-${j}`,
+                    );
+                    var key = normalizeParcelNumber(
+                      feature.properties.PARCEL_NUM,
+                    );
+                    var stringified = JSON.stringify(feature);
+                    writes.push({
+                      redisKey: key,
+                      value: stringified,
+                      parcelLabel,
+                    });
+
+                    if (feature.properties.NUMBER != null) {
+                      writes.push({
+                        redisKey: normalizeAccountNumber(
+                          feature.properties.NUMBER,
+                        ),
+                        value: stringified,
+                        parcelLabel,
+                      });
+                    }
+                  }
+
+                  console.log(
+                    `Parcel warmup writing ${writes.length} Redis entries for ${s3Key}; sample parcel ids=${
+                      writes
+                        .slice(0, 5)
+                        .map((entry) => entry.parcelLabel)
+                        .join(", ") || "n/a"
+                    }`,
+                  );
+
+                  writeRedisEntries(writes, s3Key)
+                    .then(() => {
+                      totalRedisEntriesWritten += writes.length;
+                      completedParcelFiles += 1;
+                      console.log(
+                        `Finished parcel warmup file ${s3Key}; total processed files=${completedParcelFiles}/${parcelFiles.length}; total Redis entries written=${totalRedisEntriesWritten}`,
+                      );
+                      innerResolve();
+                    })
+                    .catch((writeErr) => {
+                      console.error(
+                        `Parcel warmup chunk write failed for ${s3Key}:`,
+                        writeErr,
+                      );
+                      innerResolve();
+                    });
+                },
+              );
+            }),
+          );
+        }
+
+        await Promise.all(tasks);
+        console.log(
+          `Completed parcel cache warmup for ${parcelFiles.length} files; total Redis entries written=${totalRedisEntriesWritten}`,
+        );
+        resolve();
+      });
     });
   }
 
   function loadCacheSheriffEditHistory() {
-    sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress");
+    return sheriff.readEditHistoryIntoMemory(
+      __dirname + "/public/ruraladdress",
+    );
   }
 
   function loadCacheSheriffRotation() {
-    sheriff.readRotationIntoMemory(__dirname + "/public/ruraladdress/rotation");
+    return sheriff.readRotationIntoMemory(
+      __dirname + "/public/ruraladdress/rotation",
+    );
   }
 
   function loadCacheTylerData() {
-    tyler.readTylerDataIntoMemory();
+    return tyler.readTylerDataIntoMemory();
   }
 
   function loadCacheOptionalLayersTrs() {
-    var params = {
-      Bucket: S3_BUCKET_NAME,
-      Delimiter: "/",
-      Prefix: "gis-data-api/optional-layers/trs/",
-    };
+    return new Promise((resolve) => {
+      var params = {
+        Bucket: S3_BUCKET_NAME,
+        Delimiter: "/",
+        Prefix: "gis-data-api/optional-layers/trs/",
+      };
 
-    s3.listObjectsV2(params, (err, data) => {
-      if (err) {
-        console.error("S3 listObjectsV2 failed for optional layers TRS:", err);
-        return;
-      }
+      s3.listObjectsV2(params, async (err, data) => {
+        if (err) {
+          console.error(
+            "S3 listObjectsV2 failed for optional layers TRS:",
+            err,
+          );
+          resolve();
+          return;
+        }
 
-      if (!data || !Array.isArray(data.Contents)) {
-        console.error("Unexpected S3 response for optional layers TRS:", data);
-        return;
-      }
+        if (!data || !Array.isArray(data.Contents)) {
+          console.error(
+            "Unexpected S3 response for optional layers TRS:",
+            data,
+          );
+          resolve();
+          return;
+        }
 
-      for (var i = 0; i < data.Contents.length; i++) {
-        // Skip non JSONs
-        if (data.Contents[i].Key.indexOf("json") < 0) continue;
-        const s3Key = data.Contents[i].Key;
+        for (const item of data.Contents) {
+          if (item.Key.indexOf("json") < 0) continue;
 
-        const filename = s3Key.split("/").pop();
-        const id = filename.replace(".json", "");
+          const s3Key = item.Key;
+          const filename = s3Key.split("/").pop();
+          const id = filename.replace(".json", "");
+          const redis_key = OPTIONAL_LAYERS_TRS_PREFIX + id;
 
-        const redis_key = OPTIONAL_LAYERS_TRS_PREFIX + id;
+          await new Promise((innerResolve) => {
+            s3.getObject(
+              { Bucket: S3_BUCKET_NAME, Key: s3Key },
+              async function (err, data) {
+                try {
+                  if (err != null) {
+                    console.log(err);
+                    innerResolve();
+                    return;
+                  }
 
-        s3.getObject(
-          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
-          function (err, data) {
-            if (err != null) {
-              console.log(err);
-            }
+                  if (!data || data.Body == null) {
+                    console.warn(
+                      "Skipping optional layer payload with empty S3 body:",
+                      data,
+                    );
+                    innerResolve();
+                    return;
+                  }
 
-            if (!data || data.Body == null) {
-              console.warn(
-                "Skipping optional layer payload with empty S3 body:",
-                data,
-              );
-              return;
-            }
+                  const rawBody =
+                    data && data.Body != null ? data.Body.toString() : "";
+                  if (!rawBody || !rawBody.trim()) {
+                    innerResolve();
+                    return;
+                  }
 
-            const rawBody =
-              data && data.Body != null ? data.Body.toString() : "";
-            if (!rawBody || !rawBody.trim()) {
-              return;
-            }
+                  JSON.parse(rawBody);
+                  await writeOptionalLayerValue(redis_key, rawBody, "TRS");
+                  innerResolve();
+                } catch (parseErr) {
+                  console.warn(
+                    "Skipping optional layer payload with invalid JSON:",
+                    data && data.Key,
+                    parseErr.message,
+                  );
+                  innerResolve();
+                }
+              },
+            );
+          });
+        }
 
-            try {
-              JSON.parse(rawBody);
-            } catch (parseErr) {
-              console.warn(
-                "Skipping optional layer payload with invalid JSON:",
-                data && data.Key,
-                parseErr.message,
-              );
-              return;
-            }
-
-            // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(rawBody));
-            console.log("Loaded Optional Layers - TRS - " + redis_key);
-          },
-        );
-      }
+        resolve();
+      });
     });
   }
 
   function loadCacheOptionalLayersVoter() {
-    var params = {
-      Bucket: S3_BUCKET_NAME,
-      Delimiter: "/",
-      Prefix: "gis-data-api/optional-layers/voter/",
-    };
+    return new Promise((resolve) => {
+      var params = {
+        Bucket: S3_BUCKET_NAME,
+        Delimiter: "/",
+        Prefix: "gis-data-api/optional-layers/voter/",
+      };
 
-    s3.listObjectsV2(params, (err, data) => {
-      if (err) {
-        console.error(
-          "S3 listObjectsV2 failed for optional layers Voter:",
-          err,
-        );
-        return;
-      }
+      s3.listObjectsV2(params, async (err, data) => {
+        if (err) {
+          console.error(
+            "S3 listObjectsV2 failed for optional layers Voter:",
+            err,
+          );
+          resolve();
+          return;
+        }
 
-      if (!data || !Array.isArray(data.Contents)) {
-        console.error(
-          "Unexpected S3 response for optional layers Voter:",
-          data,
-        );
-        return;
-      }
+        if (!data || !Array.isArray(data.Contents)) {
+          console.error(
+            "Unexpected S3 response for optional layers Voter:",
+            data,
+          );
+          resolve();
+          return;
+        }
 
-      for (var i = 0; i < data.Contents.length; i++) {
-        // Skip non JSONs
-        if (data.Contents[i].Key.indexOf("json") < 0) continue;
+        for (const item of data.Contents) {
+          if (item.Key.indexOf("json") < 0) continue;
 
-        const redis_key = OPTIONAL_LAYERS_VOTER_PREFIX;
+          const redis_key = OPTIONAL_LAYERS_VOTER_PREFIX;
+          await new Promise((innerResolve) => {
+            s3.getObject(
+              { Bucket: S3_BUCKET_NAME, Key: item.Key },
+              async function (err, data) {
+                try {
+                  if (err != null) {
+                    console.log(err);
+                    innerResolve();
+                    return;
+                  }
 
-        s3.getObject(
-          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
-          function (err, data) {
-            if (err != null) {
-              console.log(err);
-            }
+                  if (!data || data.Body == null) {
+                    console.warn(
+                      "Skipping Voter layer payload with empty S3 body:",
+                      data,
+                    );
+                    innerResolve();
+                    return;
+                  }
 
-            if (!data || data.Body == null) {
-              console.warn(
-                "Skipping Voter layer payload with empty S3 body:",
-                data,
-              );
-              return;
-            }
+                  const rawBody =
+                    data && data.Body != null ? data.Body.toString() : "";
+                  if (!rawBody || !rawBody.trim()) {
+                    innerResolve();
+                    return;
+                  }
 
-            const rawBody =
-              data && data.Body != null ? data.Body.toString() : "";
-            if (!rawBody || !rawBody.trim()) {
-              return;
-            }
+                  JSON.parse(rawBody);
+                  await writeOptionalLayerValue(redis_key, rawBody, "VOTER");
+                  innerResolve();
+                } catch (parseErr) {
+                  console.warn(
+                    "Skipping Voter layer payload with invalid JSON:",
+                    data && data.Key,
+                    parseErr.message,
+                  );
+                  innerResolve();
+                }
+              },
+            );
+          });
+        }
 
-            try {
-              JSON.parse(rawBody);
-            } catch (parseErr) {
-              console.warn(
-                "Skipping Voter layer payload with invalid JSON:",
-                data && data.Key,
-                parseErr.message,
-              );
-              return;
-            }
-
-            // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(rawBody));
-            console.log("Loaded Optional Layers - VOTER - " + redis_key);
-          },
-        );
-      }
+        resolve();
+      });
     });
   }
 
   function loadCacheOptionalLayersVDistrict() {
-    var params = {
-      Bucket: S3_BUCKET_NAME,
-      Delimiter: "/",
-      Prefix: "gis-data-api/optional-layers/vdistrict/",
-    };
+    return new Promise((resolve) => {
+      var params = {
+        Bucket: S3_BUCKET_NAME,
+        Delimiter: "/",
+        Prefix: "gis-data-api/optional-layers/vdistrict/",
+      };
 
-    s3.listObjectsV2(params, (err, data) => {
-      if (err) {
-        console.error(
-          "S3 listObjectsV2 failed for optional layers VDistrict:",
-          err,
-        );
-        return;
-      }
+      s3.listObjectsV2(params, async (err, data) => {
+        if (err) {
+          console.error(
+            "S3 listObjectsV2 failed for optional layers VDistrict:",
+            err,
+          );
+          resolve();
+          return;
+        }
 
-      if (!data || !Array.isArray(data.Contents)) {
-        console.error(
-          "Unexpected S3 response for optional layers VDistrict:",
-          data,
-        );
-        return;
-      }
+        if (!data || !Array.isArray(data.Contents)) {
+          console.error(
+            "Unexpected S3 response for optional layers VDistrict:",
+            data,
+          );
+          resolve();
+          return;
+        }
 
-      for (var i = 0; i < data.Contents.length; i++) {
-        // Skip non JSONs
-        if (data.Contents[i].Key.indexOf("json") < 0) continue;
-        const s3Key = data.Contents[i].Key;
+        for (const item of data.Contents) {
+          if (item.Key.indexOf("json") < 0) continue;
+          const redis_key = OPTIONAL_LAYERS_VDISTRICT_PREFIX;
 
-        const filename = s3Key.split("/").pop();
-        const id = filename.replace(".json", "");
+          await new Promise((innerResolve) => {
+            s3.getObject(
+              { Bucket: S3_BUCKET_NAME, Key: item.Key },
+              async function (err, data) {
+                try {
+                  if (err != null) {
+                    console.log(err);
+                    innerResolve();
+                    return;
+                  }
 
-        const redis_key = OPTIONAL_LAYERS_VDISTRICT_PREFIX;
+                  if (!data || data.Body == null) {
+                    console.warn(
+                      "Skipping VDistrict payload with empty S3 body:",
+                      data,
+                    );
+                    innerResolve();
+                    return;
+                  }
 
-        s3.getObject(
-          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
-          function (err, data) {
-            if (err != null) {
-              console.log(err);
-            }
+                  const rawBody =
+                    data && data.Body != null ? data.Body.toString() : "";
+                  if (!rawBody || !rawBody.trim()) {
+                    innerResolve();
+                    return;
+                  }
 
-            if (!data || data.Body == null) {
-              console.warn(
-                "Skipping VDistrict payload with empty S3 body:",
-                data,
-              );
-              return;
-            }
+                  JSON.parse(rawBody);
+                  await writeOptionalLayerValue(
+                    redis_key,
+                    rawBody,
+                    "V District",
+                  );
+                  innerResolve();
+                } catch (parseErr) {
+                  console.warn(
+                    "Skipping VDistrict payload with invalid JSON:",
+                    data && data.Key,
+                    parseErr.message,
+                  );
+                  innerResolve();
+                }
+              },
+            );
+          });
+        }
 
-            const rawBody =
-              data && data.Body != null ? data.Body.toString() : "";
-            if (!rawBody || !rawBody.trim()) {
-              return;
-            }
-
-            try {
-              JSON.parse(rawBody);
-            } catch (parseErr) {
-              console.warn(
-                "Skipping VDistrict payload with invalid JSON:",
-                data && data.Key,
-                parseErr.message,
-              );
-              return;
-            }
-
-            // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(rawBody));
-            console.log("Loaded Optional Layers - V District - " + redis_key);
-          },
-        );
-      }
+        resolve();
+      });
     });
   }
 
   function loadCacheOptionalLayersZip() {
-    var params = {
-      Bucket: S3_BUCKET_NAME,
-      Delimiter: "/",
-      Prefix: "gis-data-api/optional-layers/zip/",
-    };
+    return new Promise((resolve) => {
+      var params = {
+        Bucket: S3_BUCKET_NAME,
+        Delimiter: "/",
+        Prefix: "gis-data-api/optional-layers/zip/",
+      };
 
-    s3.listObjectsV2(params, (err, data) => {
-      if (err) {
-        console.error("S3 listObjectsV2 failed for optional layers Zip:", err);
-        return;
-      }
+      s3.listObjectsV2(params, async (err, data) => {
+        if (err) {
+          console.error(
+            "S3 listObjectsV2 failed for optional layers Zip:",
+            err,
+          );
+          resolve();
+          return;
+        }
 
-      if (!data || !Array.isArray(data.Contents)) {
-        console.error("Unexpected S3 response for optional layers Zip:", data);
-        return;
-      }
+        if (!data || !Array.isArray(data.Contents)) {
+          console.error(
+            "Unexpected S3 response for optional layers Zip:",
+            data,
+          );
+          resolve();
+          return;
+        }
 
-      for (var i = 0; i < data.Contents.length; i++) {
-        // Skip non JSONs
-        if (data.Contents[i].Key.indexOf("json") < 0) continue;
-        const s3Key = data.Contents[i].Key;
+        for (const item of data.Contents) {
+          if (item.Key.indexOf("json") < 0) continue;
+          const redis_key = OPTIONAL_LAYERS_ZIP_PREFIX;
 
-        const filename = s3Key.split("/").pop();
-        const id = filename.replace(".json", "");
+          await new Promise((innerResolve) => {
+            s3.getObject(
+              { Bucket: S3_BUCKET_NAME, Key: item.Key },
+              async function (err, data) {
+                try {
+                  if (err != null) {
+                    console.log(err);
+                    innerResolve();
+                    return;
+                  }
 
-        const redis_key = OPTIONAL_LAYERS_ZIP_PREFIX;
+                  if (!data || data.Body == null) {
+                    console.warn(
+                      "Skipping Zip layer payload with empty S3 body:",
+                      data,
+                    );
+                    innerResolve();
+                    return;
+                  }
 
-        s3.getObject(
-          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
-          function (err, data) {
-            if (err != null) {
-              console.log(err);
-            }
+                  const rawBody =
+                    data && data.Body != null ? data.Body.toString() : "";
+                  if (!rawBody || !rawBody.trim()) {
+                    innerResolve();
+                    return;
+                  }
 
-            if (!data || data.Body == null) {
-              console.warn(
-                "Skipping Zip layer payload with empty S3 body:",
-                data,
-              );
-              return;
-            }
+                  JSON.parse(rawBody);
+                  await writeOptionalLayerValue(redis_key, rawBody, "Zip");
+                  innerResolve();
+                } catch (parseErr) {
+                  console.warn(
+                    "Skipping Zip layer payload with invalid JSON:",
+                    data && data.Key,
+                    parseErr.message,
+                  );
+                  innerResolve();
+                }
+              },
+            );
+          });
+        }
 
-            const rawBody =
-              data && data.Body != null ? data.Body.toString() : "";
-            if (!rawBody || !rawBody.trim()) {
-              return;
-            }
-
-            try {
-              JSON.parse(rawBody);
-            } catch (parseErr) {
-              console.warn(
-                "Skipping Zip layer payload with invalid JSON:",
-                data && data.Key,
-                parseErr.message,
-              );
-              return;
-            }
-
-            // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(rawBody));
-            console.log("Loaded Optional Layers - Zip - " + redis_key);
-          },
-        );
-      }
+        resolve();
+      });
     });
   }
 
   function loadCacheOptionalLayersBkr() {
-    var params = {
-      Bucket: S3_BUCKET_NAME,
-      Delimiter: "/",
-      Prefix: "gis-data-api/optional-layers/bkr/",
-    };
+    return new Promise((resolve) => {
+      var params = {
+        Bucket: S3_BUCKET_NAME,
+        Delimiter: "/",
+        Prefix: "gis-data-api/optional-layers/bkr/",
+      };
 
-    s3.listObjectsV2(params, (err, data) => {
-      if (err) {
-        console.error("S3 listObjectsV2 failed for optional layers BKR:", err);
-        return;
-      }
+      s3.listObjectsV2(params, async (err, data) => {
+        if (err) {
+          console.error(
+            "S3 listObjectsV2 failed for optional layers BKR:",
+            err,
+          );
+          resolve();
+          return;
+        }
 
-      if (!data || !Array.isArray(data.Contents)) {
-        console.error("Unexpected S3 response for optional layers BKR:", data);
-        return;
-      }
+        if (!data || !Array.isArray(data.Contents)) {
+          console.error(
+            "Unexpected S3 response for optional layers BKR:",
+            data,
+          );
+          resolve();
+          return;
+        }
 
-      for (var i = 0; i < data.Contents.length; i++) {
-        // Skip non JSONs
-        if (data.Contents[i].Key.indexOf("json") < 0) continue;
-        const s3Key = data.Contents[i].Key;
+        for (const item of data.Contents) {
+          if (item.Key.indexOf("json") < 0) continue;
+          const redis_key = OPTIONAL_LAYERS_BKR_PREFIX;
 
-        const filename = s3Key.split("/").pop();
-        const id = filename.replace(".json", "");
+          await new Promise((innerResolve) => {
+            s3.getObject(
+              { Bucket: S3_BUCKET_NAME, Key: item.Key },
+              async function (err, data) {
+                try {
+                  if (err != null) {
+                    console.log(err);
+                    innerResolve();
+                    return;
+                  }
 
-        const redis_key = OPTIONAL_LAYERS_BKR_PREFIX;
+                  if (!data || data.Body == null) {
+                    console.warn(
+                      "Skipping BKR layer payload with empty S3 body:",
+                      data,
+                    );
+                    innerResolve();
+                    return;
+                  }
 
-        s3.getObject(
-          { Bucket: S3_BUCKET_NAME, Key: data.Contents[i].Key },
-          function (err, data) {
-            if (err != null) {
-              console.log(err);
-            }
+                  const rawBody =
+                    data && data.Body != null ? data.Body.toString() : "";
+                  if (!rawBody || !rawBody.trim()) {
+                    innerResolve();
+                    return;
+                  }
 
-            if (!data || data.Body == null) {
-              console.warn(
-                "Skipping BKR layer payload with empty S3 body:",
-                data,
-              );
-              return;
-            }
+                  JSON.parse(rawBody);
+                  await writeOptionalLayerValue(redis_key, rawBody, "BKR");
+                  innerResolve();
+                } catch (parseErr) {
+                  console.warn(
+                    "Skipping BKR layer payload with invalid JSON:",
+                    data && data.Key,
+                    parseErr.message,
+                  );
+                  innerResolve();
+                }
+              },
+            );
+          });
+        }
 
-            const rawBody =
-              data && data.Body != null ? data.Body.toString() : "";
-            if (!rawBody || !rawBody.trim()) {
-              return;
-            }
-
-            try {
-              JSON.parse(rawBody);
-            } catch (parseErr) {
-              console.warn(
-                "Skipping BKR layer payload with invalid JSON:",
-                data && data.Key,
-                parseErr.message,
-              );
-              return;
-            }
-
-            // Load the TRS JSON into Redis
-            redis_client.set(redis_key, JSON.stringify(rawBody));
-            console.log("Loaded Optional Layers - BKR - " + redis_key);
-          },
-        );
-      }
+        resolve();
+      });
     });
   }
 }

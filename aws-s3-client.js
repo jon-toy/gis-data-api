@@ -85,6 +85,23 @@ async function normalizeS3Body(data) {
     };
   }
 
+  if (body && typeof body.transformToByteArray === "function") {
+    const bodyBuffer = Buffer.from(await body.transformToByteArray());
+    return {
+      ...normalized,
+      Body: bodyBuffer,
+      createReadStream: () => Readable.from(bodyBuffer),
+    };
+  }
+
+  if (body && typeof body.then === "function") {
+    return {
+      ...normalized,
+      Body: Buffer.alloc(0),
+      createReadStream: () => Readable.from([]),
+    };
+  }
+
   if (typeof body === "object") {
     if (typeof body.pipe === "function") {
       const bodyBuffer = await streamToBuffer(body);
@@ -183,7 +200,7 @@ function createLegacyGetObjectRequest(params, callback) {
   if (typeof callback === "function") {
     s3Client
       .send(new GetObjectCommand(params))
-      .then((data) => callback(null, normalizeS3Body(data)))
+      .then(async (data) => callback(null, await normalizeS3Body(data)))
       .catch((err) => callback(err, null));
   }
 

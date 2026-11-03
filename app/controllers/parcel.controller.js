@@ -1,20 +1,14 @@
 require("../../utils.js")();
 
-var redis = require("redis");
-var redis_client = redis.createClient({ legacyMode: true });
-redis_client.connect().catch((err) => {
-  console.error("Parcel Redis connect failed:", err);
-});
+const { client: redis_client } = require("../../redis-client");
 
 // Find a single parcel with a parcelNum
-exports.findOneParcel = (req, res) => {
+exports.findOneParcel = async (req, res) => {
   var parcel_num = req.params.parcelNum;
   parcel_num = normalizeParcelNumber(parcel_num);
-  redis_client.get(parcel_num, function (error, result) {
-    if (error) {
-      console.log(error);
-      throw error;
-    }
+
+  try {
+    const result = await redis_client.get(parcel_num);
 
     if (result == null) {
       var error = {};
@@ -23,24 +17,25 @@ exports.findOneParcel = (req, res) => {
     }
 
     // Convert to object
-    result = JSON.parse(result);
+    const parsedResult = JSON.parse(result);
 
     // Augment parcel with additional data
-    augmentData(result, (result) => {
-      res.send(result);
+    return augmentData(parsedResult, (augmented) => {
+      res.send(augmented);
     });
-  });
+  } catch (error) {
+    console.error("Unable to load parcel by parcel number:", parcel_num, error);
+    return res.status(500).json({ error: true, msg: "Unable to load parcel" });
+  }
 };
 
 // Find a single parcel with an account number
-exports.findOneParcelByAccountNumber = (req, res) => {
+exports.findOneParcelByAccountNumber = async (req, res) => {
   var account_num = req.params.accountNum;
   account_num = normalizeAccountNumber(account_num);
-  redis_client.get(account_num, function (error, result) {
-    if (error) {
-      console.log(error);
-      throw error;
-    }
+
+  try {
+    const result = await redis_client.get(account_num);
 
     if (result == null) {
       var error = {};
@@ -49,13 +44,16 @@ exports.findOneParcelByAccountNumber = (req, res) => {
       return res.status(404).send(error);
     }
 
-    // Augment parcel with additional data
-    augmentData(result, (result) => {
-      res.send(result);
-    });
+    const parsedResult = JSON.parse(result);
 
-    res.send(JSON.parse(result));
-  });
+    // Augment parcel with additional data
+    return augmentData(parsedResult, (augmented) => {
+      res.send(augmented);
+    });
+  } catch (error) {
+    console.error("Unable to load parcel by account number:", account_num, error);
+    return res.status(500).json({ error: true, msg: "Unable to load parcel" });
+  }
 };
 
 function augmentData(parcel, callback) {

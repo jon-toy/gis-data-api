@@ -5,11 +5,7 @@ var sheriff = require("./sheriff.controller.js");
 var superagent_request = require("superagent");
 var { IncomingForm } = require("formidable");
 var fs = require("fs");
-var redis = require("redis");
-var redis_client = redis.createClient({ legacyMode: true });
-redis_client.connect().catch((err) => {
-  console.error("Ruraladdress Redis connect failed:", err);
-});
+const { client: redis_client } = require("../../redis-client");
 const s3 = require("../../aws-s3-client");
 
 const UPLOAD_PASSWORD = "apache_county_eggdrop1315";
@@ -23,64 +19,71 @@ exports.putZone = (req, res, next) => {
   return handleResponse(req, res);
 };
 
-exports.getZoneEditHistory = (req, res, next) => {
+exports.getZoneEditHistory = async (req, res, next) => {
   if (!req.params.zoneName) {
     res.status(400).json({ error: true, msg: "No Zone Name provided" });
     return;
   }
 
-  redis_client.get(
-    ZONE_EDIT_HISTORY_PREFIX + req.params.zoneName,
-    (err, result) => {
-      // Convert from string to JSON
-      result = JSON.parse(result);
+  try {
+    const result = await redis_client.get(ZONE_EDIT_HISTORY_PREFIX + req.params.zoneName);
+    if (result == null) {
+      return res.status(404).json({ error: true, msg: "Zone edit history not found" });
+    }
 
-      if (req.query.startDate) {
-        var startDate = new Date(req.query.startDate);
+    let parsedResult = JSON.parse(result);
 
-        result = result.map((parcel) => {
-          parcel.edits = parcel.edits.filter((edit) => {
-            editDate = new Date(edit.date);
-            return editDate >= startDate; // Only show edits that meet are after this start date
-          });
-          return parcel;
+    if (req.query.startDate) {
+      var startDate = new Date(req.query.startDate);
+
+      parsedResult = parsedResult.map((parcel) => {
+        parcel.edits = parcel.edits.filter((edit) => {
+          editDate = new Date(edit.date);
+          return editDate >= startDate;
         });
+        return parcel;
+      });
 
-        result = result.filter((parcel) => parcel.edits.length > 0); // Only show parcels that fit this criteria
-      }
+      parsedResult = parsedResult.filter((parcel) => parcel.edits.length > 0);
+    }
 
-      if (req.query.endDate) {
-        var endDate = new Date(req.query.endDate);
+    if (req.query.endDate) {
+      var endDate = new Date(req.query.endDate);
 
-        result = result.map((parcel) => {
-          parcel.edits = parcel.edits.filter((edit) => {
-            editDate = new Date(edit.date);
-            return editDate <= endDate; // Only show edits that meet are before this end date
-          });
-          return parcel;
+      parsedResult = parsedResult.map((parcel) => {
+        parcel.edits = parcel.edits.filter((edit) => {
+          editDate = new Date(edit.date);
+          return editDate <= endDate;
         });
+        return parcel;
+      });
 
-        result = result.filter((parcel) => parcel.edits.length > 0); // Only show parcels that fit this criteria
-      }
-      res.send(result);
-    },
-  );
+      parsedResult = parsedResult.filter((parcel) => parcel.edits.length > 0);
+    }
+    return res.send(parsedResult);
+  } catch (error) {
+    console.error("Unable to load zone edit history:", req.params.zoneName, error);
+    return res.status(500).json({ error: true, msg: "Unable to load zone edit history" });
+  }
 };
 
-exports.getZoneRotations = (req, res, next) => {
+exports.getZoneRotations = async (req, res, next) => {
   if (!req.params.zoneName) {
     res.status(400).json({ error: true, msg: "No Zone Name provided" });
     return;
   }
 
-  redis_client.get(
-    ZONE_ROTATION_PREFIX + req.params.zoneName,
-    (err, result) => {
-      // Convert from string to JSON
-      result = JSON.parse(result);
-      res.send(result);
-    },
-  );
+  try {
+    const result = await redis_client.get(ZONE_ROTATION_PREFIX + req.params.zoneName);
+    if (result == null) {
+      return res.status(404).json({ error: true, msg: "Zone rotation not found" });
+    }
+
+    return res.send(JSON.parse(result));
+  } catch (error) {
+    console.error("Unable to load zone rotation:", req.params.zoneName, error);
+    return res.status(500).json({ error: true, msg: "Unable to load zone rotation" });
+  }
 };
 
 exports.getZonesEditHistory = (req, res) => {

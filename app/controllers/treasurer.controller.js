@@ -3,11 +3,7 @@ require("../../utils.js")();
 // Convert to a GeoJSON
 var superagent_request = require("superagent");
 var fs = require("fs");
-var redis = require("redis");
-var redis_client = redis.createClient({ legacyMode: true });
-redis_client.connect().catch((err) => {
-  console.error("Treasurer Redis connect failed:", err);
-});
+const { client: redis_client } = require("../../redis-client");
 
 const UPLOAD_PASSWORD = "apache_county_eggdrop1315";
 
@@ -86,15 +82,12 @@ function readLines(input, func) {
 }
 
 // Get the account balance for a single account number (param accountNum)
-exports.getAccountBalance = (req, res, next) => {
+exports.getAccountBalance = async (req, res, next) => {
   var account_num = req.params.accountNum;
   var key = TREASURER_BALANCE_DUE_PREFIX + account_num;
 
-  redis_client.get(key, function (error, result) {
-    if (error) {
-      console.log(error);
-      throw error;
-    }
+  try {
+    const result = await redis_client.get(key);
 
     if (result == null) {
       var error = {};
@@ -105,6 +98,9 @@ exports.getAccountBalance = (req, res, next) => {
 
     var response = {};
     response.balance_due = result;
-    res.send(response);
-  });
+    return res.send(response);
+  } catch (error) {
+    console.error("Unable to load treasurer balance for account:", account_num, error);
+    return res.status(500).json({ error: true, msg: "Unable to load balance" });
+  }
 };
