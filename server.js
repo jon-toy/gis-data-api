@@ -312,129 +312,99 @@ async function loadCacheOnStartup() {
           return;
         }
 
-        const tasks = [];
         const parcelFiles = data.Contents.filter(
           (item) => item.Key.indexOf("json") >= 0,
         );
         let totalRedisEntriesWritten = 0;
         let completedParcelFiles = 0;
 
-        for (var i = 0; i < parcelFiles.length; i++) {
+        for (let i = 0; i < parcelFiles.length; i++) {
           const s3Key = parcelFiles[i].Key;
 
-          tasks.push(
-            new Promise((innerResolve) => {
-              s3.getObject(
-                { Bucket: S3_BUCKET_NAME, Key: s3Key },
-                function (err, data) {
-                  if (err != null) {
-                    console.log(`Parcel warmup failed for ${s3Key}:`, err);
-                    innerResolve();
-                    return;
-                  }
+          try {
+            const fileData = await new Promise((innerResolve, innerReject) => {
+              s3.getObject({ Bucket: S3_BUCKET_NAME, Key: s3Key }, (getErr, body) => {
+                if (getErr != null) {
+                  innerReject(getErr);
+                  return;
+                }
+                innerResolve(body);
+              });
+            });
 
-                  if (!data || data.Body == null) {
-                    console.warn(
-                      `Parcel warmup skipping empty body for ${s3Key}`,
-                    );
-                    innerResolve();
-                    return;
-                  }
+            if (!fileData || fileData.Body == null) {
+              console.warn(`Parcel warmup skipping empty body for ${s3Key}`);
+              continue;
+            }
 
-                  const rawBody =
-                    data && data.Body != null ? data.Body.toString() : "";
-                  if (!rawBody || !rawBody.trim()) {
-                    console.warn(
-                      `Parcel warmup skipping empty JSON for ${s3Key}`,
-                    );
-                    innerResolve();
-                    return;
-                  }
+            const rawBody = fileData.Body.toString();
+            if (!rawBody || !rawBody.trim()) {
+              console.warn(`Parcel warmup skipping empty JSON for ${s3Key}`);
+              continue;
+            }
 
-                  let obj;
-                  try {
-                    obj = JSON.parse(rawBody);
-                  } catch (parseErr) {
-                    console.warn(
-                      `Parcel warmup invalid JSON in ${s3Key}:`,
-                      parseErr.message,
-                    );
-                    innerResolve();
-                    return;
-                  }
-
-                  if (!obj || !Array.isArray(obj.features)) {
-                    console.warn(
-                      `Parcel warmup skipping non-feature payload for ${s3Key}`,
-                    );
-                    innerResolve();
-                    return;
-                  }
-
-                  const writes = [];
-                  for (var j = 0; j < obj.features.length; j++) {
-                    var feature = obj.features[j];
-
-                    if (feature.properties.PARCEL_NUM == null) continue;
-
-                    var parcelLabel = String(
-                      feature.properties.PARCEL_NUM ??
-                        feature.properties.NUMBER ??
-                        `feature-${j}`,
-                    );
-                    var key = normalizeParcelNumber(
-                      feature.properties.PARCEL_NUM,
-                    );
-                    var stringified = JSON.stringify(feature);
-                    writes.push({
-                      redisKey: key,
-                      value: stringified,
-                      parcelLabel,
-                    });
-
-                    if (feature.properties.NUMBER != null) {
-                      writes.push({
-                        redisKey: normalizeAccountNumber(
-                          feature.properties.NUMBER,
-                        ),
-                        value: stringified,
-                        parcelLabel,
-                      });
-                    }
-                  }
-
-                  console.log(
-                    `Parcel warmup writing ${writes.length} Redis entries for ${s3Key}; sample parcel ids=${
-                      writes
-                        .slice(0, 5)
-                        .map((entry) => entry.parcelLabel)
-                        .join(", ") || "n/a"
-                    }`,
-                  );
-
-                  writeRedisEntries(writes, s3Key)
-                    .then(() => {
-                      totalRedisEntriesWritten += writes.length;
-                      completedParcelFiles += 1;
-                      console.log(
-                        `Finished parcel warmup file ${s3Key}; total processed files=${completedParcelFiles}/${parcelFiles.length}; total Redis entries written=${totalRedisEntriesWritten}`,
-                      );
-                      innerResolve();
-                    })
-                    .catch((writeErr) => {
-                      console.error(
-                        `Parcel warmup chunk write failed for ${s3Key}:`,
-                        writeErr,
-                      );
-                      innerResolve();
-                    });
-                },
+            let obj;
+            try {
+              obj = JSON.parse(rawBody);
+            } catch (parseErr) {
+              console.warn(
+                `Parcel warmup invalid JSON in ${s3Key}:`,
+                parseErr.message,
               );
-            }),
-          );
+              continue;
+            }
+
+            if (!obj || !Array.isArray(obj.features)) {
+              console.warn(
+                `Parcel warmup skipping non-feature payload for ${s3Key}`,
+              );
+              continue;
+            }
+
+            const writes = [];
+            for (var j = 0; j < obj.features.length; j++) {
+              var feature = obj.features[j];
+
+              if (feature.properties.PARCEL_NUM == null) continue;
+
+              var parcelLabel = String(
+                feature.properties.PARCEL_NUM ??
+                  feature.properties.NUMBER ??
+                  `feature-${j}`,
+              );
+              var key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
+              var stringified = JSON.stringify(feature);
+              writes.push({ redisKey: key, value: stringified, parcelLabel });
+
+              if (feature.properties.NUMBER != null) {
+                writes.push({
+                  redisKey: normalizeAccountNumber(feature.properties.NUMBER),
+                  value: stringified,
+                  parcelLabel,
+                });
+              }
+            }
+
+            console.log(
+              `Parcel warmup writing ${writes.length} Redis entries for ${s3Key}; sample parcel ids=${
+                writes
+                  .slice(0, 5)
+                  .map((entry) => entry.parcelLabel)
+                  .join(", ") || "n/a"
+              }`,
+            );
+
+            await writeRedisEntries(writes, s3Key);
+            totalRedisEntriesWritten += writes.length;
+            completedParcelFiles += 1;
+            console.log(
+              `Finished parcel warmup file ${s3Key}; total processed files=${completedParcelFiles}/${parcelFiles.length}; total Redis entries written=${totalRedisEntriesWritten}`,
+            );
+          } catch (fileError) {
+            console.error(`Parcel warmup failed for ${s3Key}:`, fileError);
+          }
         }
 
-        await Promise.all(tasks);
         console.log(
           `Completed parcel cache warmup for ${parcelFiles.length} files; total Redis entries written=${totalRedisEntriesWritten}`,
         );
