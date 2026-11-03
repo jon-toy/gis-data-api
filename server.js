@@ -337,13 +337,16 @@ async function loadCacheOnStartup() {
 
           try {
             const fileData = await new Promise((innerResolve, innerReject) => {
-              s3.getObject({ Bucket: S3_BUCKET_NAME, Key: s3Key }, (getErr, body) => {
-                if (getErr != null) {
-                  innerReject(getErr);
-                  return;
-                }
-                innerResolve(body);
-              });
+              s3.getObject(
+                { Bucket: S3_BUCKET_NAME, Key: s3Key },
+                (getErr, body) => {
+                  if (getErr != null) {
+                    innerReject(getErr);
+                    return;
+                  }
+                  innerResolve(body);
+                },
+              );
             });
 
             if (!fileData || fileData.Body == null) {
@@ -391,7 +394,11 @@ async function loadCacheOnStartup() {
 
             for (let j = 0; j < obj.features.length; j++) {
               const feature = obj.features[j];
-              if (!feature || !feature.properties || feature.properties.PARCEL_NUM == null) {
+              if (
+                !feature ||
+                !feature.properties ||
+                feature.properties.PARCEL_NUM == null
+              ) {
                 continue;
               }
 
@@ -403,7 +410,11 @@ async function loadCacheOnStartup() {
               const key = normalizeParcelNumber(feature.properties.PARCEL_NUM);
               const stringified = JSON.stringify(feature);
 
-              writeQueue.push({ redisKey: key, value: stringified, parcelLabel });
+              writeQueue.push({
+                redisKey: key,
+                value: stringified,
+                parcelLabel,
+              });
               if (sampleParcelIds.length < 5) {
                 sampleParcelIds.push(parcelLabel);
               }
