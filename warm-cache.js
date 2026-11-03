@@ -9,7 +9,10 @@ if (nodeMajor !== 22) {
 require("./utils.js")();
 
 const s3 = require("./aws-s3-client");
-const { client: redis_client, ensureRedisConnected } = require("./redis-client");
+const {
+  client: redis_client,
+  ensureRedisConnected,
+} = require("./redis-client");
 const sheriff = require("./app/controllers/sheriff.controller.js");
 const tyler = require("./app/controllers/tyler.controller.js");
 
@@ -33,13 +36,62 @@ const setRedisValueWithTimeout = async (redisKey, value, timeoutMs = 15000) => {
 
 async function loadCacheZones() {
   const zoneDefinitions = [
-    { num: 1, name: "Sanders", books: ["207.json", "209.json", "210.json"], lat: 35.1518, lon: -109.5042, zoom: 13 },
-    { num: 2, name: "Sanders South", books: ["205.json", "206.json", "208.json", "211.json"], lat: 34.951286499999995, lon: -109.44762600000001, zoom: 13 },
-    { num: 3, name: "St John's North", books: ["204.json"], lat: 34.7501, lon: -109.1778, zoom: 13 },
-    { num: 4, name: "Concho", books: ["201.json", "212.json"], lat: 34.5180075, lon: -109.69512700000001, zoom: 13 },
-    { num: 5, name: "St John's", books: ["108.json", "202.json", "203.json"], lat: 34.384599, lon: -109.29469749999998, zoom: 13 },
-    { num: 6, name: "Vernon", books: ["106.json", "107.json"], lat: 34.2367455, lon: -109.68258000000003, zoom: 13 },
-    { num: 7, name: "Springerville/Eagar", books: ["101.json", "102.json", "103.json", "104.json", "105.json"], lat: 34.1096, lon: -109.2906, zoom: 13 },
+    {
+      num: 1,
+      name: "Sanders",
+      books: ["207.json", "209.json", "210.json"],
+      lat: 35.1518,
+      lon: -109.5042,
+      zoom: 13,
+    },
+    {
+      num: 2,
+      name: "Sanders South",
+      books: ["205.json", "206.json", "208.json", "211.json"],
+      lat: 34.951286499999995,
+      lon: -109.44762600000001,
+      zoom: 13,
+    },
+    {
+      num: 3,
+      name: "St John's North",
+      books: ["204.json"],
+      lat: 34.7501,
+      lon: -109.1778,
+      zoom: 13,
+    },
+    {
+      num: 4,
+      name: "Concho",
+      books: ["201.json", "212.json"],
+      lat: 34.5180075,
+      lon: -109.69512700000001,
+      zoom: 13,
+    },
+    {
+      num: 5,
+      name: "St John's",
+      books: ["108.json", "202.json", "203.json"],
+      lat: 34.384599,
+      lon: -109.29469749999998,
+      zoom: 13,
+    },
+    {
+      num: 6,
+      name: "Vernon",
+      books: ["106.json", "107.json"],
+      lat: 34.2367455,
+      lon: -109.68258000000003,
+      zoom: 13,
+    },
+    {
+      num: 7,
+      name: "Springerville/Eagar",
+      books: ["101.json", "102.json", "103.json", "104.json", "105.json"],
+      lat: 34.1096,
+      lon: -109.2906,
+      zoom: 13,
+    },
   ];
 
   for (const zone of zoneDefinitions) {
@@ -60,7 +112,11 @@ async function loadCacheZones() {
 
     for (const bookName of zone.books) {
       const bookKey = bookName.replace(".json", "");
-      await setRedisValueWithTimeout(BOOK_ZONE_KEY_PREFIX + bookKey, String(zone.num), 15000);
+      await setRedisValueWithTimeout(
+        BOOK_ZONE_KEY_PREFIX + bookKey,
+        String(zone.num),
+        15000,
+      );
     }
   }
 }
@@ -86,7 +142,9 @@ async function loadCacheParcels() {
         return;
       }
 
-      const parcelFiles = data.Contents.filter((item) => item.Key.indexOf("json") >= 0);
+      const parcelFiles = data.Contents.filter(
+        (item) => item.Key.indexOf("json") >= 0,
+      );
       let totalRedisEntriesWritten = 0;
       let completedParcelFiles = 0;
 
@@ -95,13 +153,16 @@ async function loadCacheParcels() {
 
         try {
           const fileData = await new Promise((innerResolve, innerReject) => {
-            s3.getObject({ Bucket: S3_BUCKET_NAME, Key: s3Key }, (getErr, body) => {
-              if (getErr != null) {
-                innerReject(getErr);
-                return;
-              }
-              innerResolve(body);
-            });
+            s3.getObject(
+              { Bucket: S3_BUCKET_NAME, Key: s3Key },
+              (getErr, body) => {
+                if (getErr != null) {
+                  innerReject(getErr);
+                  return;
+                }
+                innerResolve(body);
+              },
+            );
           });
 
           if (!fileData || fileData.Body == null) {
@@ -119,12 +180,17 @@ async function loadCacheParcels() {
           try {
             obj = JSON.parse(rawBody);
           } catch (parseErr) {
-            console.warn(`Parcel warmup invalid JSON in ${s3Key}:`, parseErr.message);
+            console.warn(
+              `Parcel warmup invalid JSON in ${s3Key}:`,
+              parseErr.message,
+            );
             continue;
           }
 
           if (!obj || !Array.isArray(obj.features)) {
-            console.warn(`Parcel warmup skipping non-feature payload for ${s3Key}`);
+            console.warn(
+              `Parcel warmup skipping non-feature payload for ${s3Key}`,
+            );
             continue;
           }
 
@@ -133,14 +199,22 @@ async function loadCacheParcels() {
 
           for (let j = 0; j < obj.features.length; j++) {
             const feature = obj.features[j];
-            if (!feature || !feature.properties || feature.properties.PARCEL_NUM == null) {
+            if (
+              !feature ||
+              !feature.properties ||
+              feature.properties.PARCEL_NUM == null
+            ) {
               continue;
             }
 
             const parcelLabel = String(
-              feature.properties.PARCEL_NUM ?? feature.properties.NUMBER ?? `feature-${j}`,
+              feature.properties.PARCEL_NUM ??
+                feature.properties.NUMBER ??
+                `feature-${j}`,
             );
-            const redisKey = normalizeParcelNumber(feature.properties.PARCEL_NUM);
+            const redisKey = normalizeParcelNumber(
+              feature.properties.PARCEL_NUM,
+            );
             const stringified = JSON.stringify(feature);
 
             writeQueue.push({ redisKey, value: stringified, parcelLabel });
@@ -157,7 +231,11 @@ async function loadCacheParcels() {
             if (writeQueue.length >= 250) {
               const batch = writeQueue.splice(0, writeQueue.length);
               for (const entry of batch) {
-                await setRedisValueWithTimeout(entry.redisKey, entry.value, 15000);
+                await setRedisValueWithTimeout(
+                  entry.redisKey,
+                  entry.value,
+                  15000,
+                );
               }
               totalRedisEntriesWritten += batch.length;
             }
@@ -166,7 +244,11 @@ async function loadCacheParcels() {
           if (writeQueue.length > 0) {
             const batch = writeQueue.splice(0, writeQueue.length);
             for (const entry of batch) {
-              await setRedisValueWithTimeout(entry.redisKey, entry.value, 15000);
+              await setRedisValueWithTimeout(
+                entry.redisKey,
+                entry.value,
+                15000,
+              );
             }
             totalRedisEntriesWritten += batch.length;
           }
@@ -199,8 +281,18 @@ async function runWarmCache() {
   const loaders = [
     { name: "loadCacheZones", fn: loadCacheZones },
     { name: "loadCacheParcels", fn: loadCacheParcels },
-    { name: "loadCacheSheriffEditHistory", fn: () => sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress") },
-    { name: "loadCacheSheriffRotation", fn: () => sheriff.readRotationIntoMemory(__dirname + "/public/ruraladdress/rotation") },
+    {
+      name: "loadCacheSheriffEditHistory",
+      fn: () =>
+        sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress"),
+    },
+    {
+      name: "loadCacheSheriffRotation",
+      fn: () =>
+        sheriff.readRotationIntoMemory(
+          __dirname + "/public/ruraladdress/rotation",
+        ),
+    },
     { name: "loadCacheTylerData", fn: () => tyler.readTylerDataIntoMemory() },
   ];
 
@@ -209,7 +301,9 @@ async function runWarmCache() {
     const startedAt = Date.now();
     try {
       await loader.fn();
-      console.log(`Finished cache warmup: ${loader.name} in ${Date.now() - startedAt}ms`);
+      console.log(
+        `Finished cache warmup: ${loader.name} in ${Date.now() - startedAt}ms`,
+      );
     } catch (err) {
       console.error(`Cache loader failed: ${loader.name}`, err);
     }
