@@ -234,30 +234,31 @@ exports.readEditHistoryIntoMemory = (folder) => {
             async (fileName, zone_edit_history_parcels) => {
               if (zone_edit_history_parcels.length <= 0) return;
 
+              const zoneName = fileName.replace(".tsv", "");
+
               console.log(
-                "Creating zone object for zone: " +
-                  fileName.replace(".tsv", ""),
+                "Creating zone object for zone: " + zoneName,
               );
               console.log(
                 "Number of parcels: " + zone_edit_history_parcels.length,
               );
 
-              const writes = zone_edit_history_parcels.map((account) => [
-                SHERIFF_EDIT_HISTORY_PREFIX + account.apn,
-                JSON.stringify(account),
-              ]);
+              const zoneKey = ZONE_EDIT_HISTORY_PREFIX + zoneName;
+              const zonePayload = JSON.stringify(zone_edit_history_parcels);
 
-              writes.push([
-                ZONE_EDIT_HISTORY_PREFIX + fileName.replace(".tsv", ""),
-                JSON.stringify(zone_edit_history_parcels),
-              ]);
-
-              for (let index = 0; index < writes.length; index += 10) {
-                const chunk = writes.slice(index, index + 10);
-                for (const [key, value] of chunk) {
-                  await redis_client.set(key, value);
-                }
+              for (let index = 0; index < zone_edit_history_parcels.length; index += 25) {
+                const chunk = zone_edit_history_parcels.slice(index, index + 25);
+                await Promise.all(
+                  chunk.map((account) =>
+                    redis_client.set(
+                      SHERIFF_EDIT_HISTORY_PREFIX + account.apn,
+                      JSON.stringify(account),
+                    ),
+                  ),
+                );
               }
+
+              await redis_client.set(zoneKey, zonePayload);
             },
           );
         }
