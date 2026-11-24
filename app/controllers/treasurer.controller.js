@@ -100,7 +100,11 @@ exports.getAccountBalance = async (req, res, next) => {
     response.balance_due = result;
     return res.send(response);
   } catch (error) {
-    console.error("Unable to load treasurer balance for account:", account_num, error);
+    console.error(
+      "Unable to load treasurer balance for account:",
+      account_num,
+      error,
+    );
     return res.status(500).json({ error: true, msg: "Unable to load balance" });
   }
 };

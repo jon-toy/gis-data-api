@@ -163,6 +163,7 @@ exports.readEditHistoryIntoMemory = (folder) => {
 
       try {
         for (const item of filesToProcess) {
+          console.log("Processing sheriff edit history file: " + item.key);
           const s3Stream = s3
             .getObject({ Bucket: S3_BUCKET_NAME, Key: item.key })
             .createReadStream();
@@ -236,9 +237,7 @@ exports.readEditHistoryIntoMemory = (folder) => {
 
               const zoneName = fileName.replace(".tsv", "");
 
-              console.log(
-                "Creating zone object for zone: " + zoneName,
-              );
+              console.log("Creating zone object for zone: " + zoneName);
               console.log(
                 "Number of parcels: " + zone_edit_history_parcels.length,
               );
@@ -246,9 +245,21 @@ exports.readEditHistoryIntoMemory = (folder) => {
               const zoneKey = ZONE_EDIT_HISTORY_PREFIX + zoneName;
               const zonePayload = JSON.stringify(zone_edit_history_parcels);
 
-              for (let index = 0; index < zone_edit_history_parcels.length; index += 25) {
-                const chunk = zone_edit_history_parcels.slice(index, index + 25);
+              for (
+                let index = 0;
+                index < zone_edit_history_parcels.length;
+                index += 25
+              ) {
+                const chunk = zone_edit_history_parcels.slice(
+                  index,
+                  index + 25,
+                );
                 for (const account of chunk) {
+                  if (account.apn == "205-17-051") {
+                    console.log("FOUND ACCOUNT 205-17-051");
+                    console.log(SHERIFF_EDIT_HISTORY_PREFIX + account.apn);
+                    console.log(account);
+                  }
                   await redis_client.set(
                     SHERIFF_EDIT_HISTORY_PREFIX + account.apn,
                     JSON.stringify(account),
@@ -391,7 +402,9 @@ exports.getEditHistory = async (req, res, next) => {
     return res.send(ret);
   } catch (error) {
     console.error("Unable to load sheriff edit history for apn:", apn, error);
-    return res.status(500).json({ error: true, msg: "Unable to load edit history" });
+    return res
+      .status(500)
+      .json({ error: true, msg: "Unable to load edit history" });
   }
 };
 

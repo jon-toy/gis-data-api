@@ -61,7 +61,7 @@ async function getUser(req, res) {
 
 async function getCsvs(req, res) {
   try {
-    const QUERY = `after:2025/9/25 has:attachment OR has:drive`;
+    const QUERY = `after:2026/9/25 has:attachment OR has:drive`;
     let url = `https://www.googleapis.com/gmail/v1/users/me/messages?q=${QUERY}`;
     const { token } = await oAuth2Client.getAccessToken();
     let config = generateConfig(url, token);

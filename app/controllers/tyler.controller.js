@@ -136,7 +136,9 @@ exports.readTylerDataIntoMemory = () => {
                   const flushBatch = async () => {
                     if (batch.length === 0) return;
                     await Promise.all(
-                      batch.map(([redisKey, value]) => redis_client.set(redisKey, value)),
+                      batch.map(([redisKey, value]) =>
+                        redis_client.set(redisKey, value),
+                      ),
                     );
                     batch.length = 0;
                   };
@@ -161,7 +163,10 @@ exports.readTylerDataIntoMemory = () => {
                     }
 
                     const parcelNumber = json["Parcel Number"];
-                    if (parcelNumber == null || String(parcelNumber).trim() === "") {
+                    if (
+                      parcelNumber == null ||
+                      String(parcelNumber).trim() === ""
+                    ) {
                       continue;
                     }
 
@@ -230,6 +235,8 @@ exports.getTylerData = async (req, res, next) => {
     return res.send(ret);
   } catch (error) {
     console.error("Unable to load Tyler data for apn:", apn, error);
-    return res.status(500).json({ error: true, msg: "Unable to load Tyler data" });
+    return res
+      .status(500)
+      .json({ error: true, msg: "Unable to load Tyler data" });
   }
 };

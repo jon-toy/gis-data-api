@@ -1,8 +1,8 @@
 require("../../utils.js")();
 
 // Convert to a GeoJSON
-var superagent_request = require("superagent");
 var { IncomingForm } = require("formidable");
+const { convertLocalFile } = require("../../local-gis-converter");
 var fs = require("fs");
 const { client: redis_client } = require("../../redis-client");
 
@@ -202,23 +202,17 @@ function convertToGeoJson(req, res, next, folder_name, file, password) {
       .json({ error: true, msg: "Uploaded file path missing" });
   }
 
-  superagent_request
-    .post("http://ogre.adc4gis.com/convert")
-    .field("sourceSrs", "")
-    .field("targetSrs", "")
-    .attach("upload", filePath, originalName)
-    .end((er, s_res) => {
-      if (er) return console.error(er);
-
+  convertLocalFile(filePath, originalName)
+    .then((geoJson) => {
       var sanitized = {};
-      sanitized.type = s_res.body.type;
+      sanitized.type = geoJson.type;
       sanitized.features = [];
 
       var unclosed = [];
 
       // Go through each feature and verify that the polygon is properly closed (first coordinate is equal to the last one)
-      for (var i = 0; i < s_res.body.features.length; i++) {
-        var result = sanitizeFeature(s_res.body.features[i]);
+      for (var i = 0; i < geoJson.features.length; i++) {
+        var result = sanitizeFeature(geoJson.features[i]);
         var feature = result.feature;
 
         if (feature == null) continue;
@@ -270,6 +264,14 @@ function convertToGeoJson(req, res, next, folder_name, file, password) {
           }
         },
       );
+    })
+    .catch((conversionError) => {
+      console.error("Local GIS conversion failed:", conversionError);
+      return res.status(422).json({
+        error: true,
+        msg: "Unable to convert uploaded GIS file",
+        detail: conversionError.message,
+      });
     });
 
   return;

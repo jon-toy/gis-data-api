@@ -2,8 +2,8 @@ require("../../utils.js")();
 var sheriff = require("./sheriff.controller.js");
 
 // Convert to a GeoJSON
-var superagent_request = require("superagent");
 var { IncomingForm } = require("formidable");
+const { convertLocalFile } = require("../../local-gis-converter");
 var fs = require("fs");
 const { client: redis_client } = require("../../redis-client");
 const s3 = require("../../aws-s3-client");
@@ -26,9 +26,13 @@ exports.getZoneEditHistory = async (req, res, next) => {
   }
 
   try {
-    const result = await redis_client.get(ZONE_EDIT_HISTORY_PREFIX + req.params.zoneName);
+    const result = await redis_client.get(
+      ZONE_EDIT_HISTORY_PREFIX + req.params.zoneName,
+    );
     if (result == null) {
-      return res.status(404).json({ error: true, msg: "Zone edit history not found" });
+      return res
+        .status(404)
+        .json({ error: true, msg: "Zone edit history not found" });
     }
 
     let parsedResult = JSON.parse(result);
@@ -62,8 +66,14 @@ exports.getZoneEditHistory = async (req, res, next) => {
     }
     return res.send(parsedResult);
   } catch (error) {
-    console.error("Unable to load zone edit history:", req.params.zoneName, error);
-    return res.status(500).json({ error: true, msg: "Unable to load zone edit history" });
+    console.error(
+      "Unable to load zone edit history:",
+      req.params.zoneName,
+      error,
+    );
+    return res
+      .status(500)
+      .json({ error: true, msg: "Unable to load zone edit history" });
   }
 };
 
@@ -74,15 +84,21 @@ exports.getZoneRotations = async (req, res, next) => {
   }
 
   try {
-    const result = await redis_client.get(ZONE_ROTATION_PREFIX + req.params.zoneName);
+    const result = await redis_client.get(
+      ZONE_ROTATION_PREFIX + req.params.zoneName,
+    );
     if (result == null) {
-      return res.status(404).json({ error: true, msg: "Zone rotation not found" });
+      return res
+        .status(404)
+        .json({ error: true, msg: "Zone rotation not found" });
     }
 
     return res.send(JSON.parse(result));
   } catch (error) {
     console.error("Unable to load zone rotation:", req.params.zoneName, error);
-    return res.status(500).json({ error: true, msg: "Unable to load zone rotation" });
+    return res
+      .status(500)
+      .json({ error: true, msg: "Unable to load zone rotation" });
   }
 };
 
@@ -146,17 +162,37 @@ function unwrapUploadedFile(value) {
 }
 
 function normalizeFile(file) {
-  const candidate = unwrapUploadedFile(file);
+  let candidate = null;
+
+  if (Array.isArray(file)) {
+    for (const entry of file) {
+      const unwrapped = unwrapUploadedFile(entry);
+      if (unwrapped && Number(unwrapped.size || 0) > 0) {
+        candidate = unwrapped;
+        break;
+      }
+    }
+  } else {
+    candidate = unwrapUploadedFile(file);
+  }
+
   if (!candidate) return null;
 
   const normalized = { ...candidate };
   normalized.path = normalized.path || normalized.filepath || null;
   normalized.name =
-    normalized.name ||
     normalized.originalFilename ||
+    normalized.name ||
     normalized.newFilename ||
     "upload";
   return normalized;
+}
+
+function normalizeField(fields, name) {
+  if (!fields) return undefined;
+  const value = fields[name];
+  if (Array.isArray(value)) return value[0];
+  return value;
 }
 
 function handleResponse(req, res) {
@@ -173,12 +209,13 @@ function handleResponse(req, res) {
       return;
     }
 
-    if (!fields.zoneName) {
+    const zoneName = normalizeField(fields, "zoneName") || req.params.zoneName;
+    if (!zoneName) {
       res.status(400).json({ error: true, msg: "No Zone Name provided" });
       return;
     }
 
-    const folderName = fields.zoneName;
+    const folderName = zoneName;
 
     const markers = normalizeFile(files.markers || files["markers"]);
     const parcels = normalizeFile(files.parcels || files["parcels"]);
@@ -207,9 +244,9 @@ function handleResponse(req, res) {
       return;
     }
 
-    var password = fields.password;
+    const password = normalizeField(fields, "password");
 
-    if (password != UPLOAD_PASSWORD)
+    if (password !== UPLOAD_PASSWORD)
       return res.json({ message: "Invalid Password" });
 
     const firstNonEmpty = (file) => {
@@ -245,27 +282,60 @@ function handleResponse(req, res) {
 function convertAndWrite(folderName, fileName, data) {
   const filePath = data && (data.path || data.filepath);
 
-  superagent_request
-    .post("http://ogre.adc4gis.com/convert")
-    .field("sourceSrs", "")
-    .field("targetSrs", "")
-    .attach(
-      "upload",
-      filePath,
-      data &&
-        (data.originalFilename || data.name || data.newFilename || fileName),
-    )
-    .end(function (er, res) {
-      if (er) return console.error(er);
+  if (!filePath) {
+    console.error(`Upload rejected: missing temp path for ${fileName}`);
+    return;
+  }
+
+  if (!fs.existsSync(filePath)) {
+    console.error(
+      `Upload rejected: temp file does not exist for ${fileName}: ${filePath}`,
+    );
+    return;
+  }
+
+  const originalName =
+    data.originalFilename || data.name || data.newFilename || fileName;
+
+  convertLocalFile(filePath, originalName)
+    .then((geoJson) => {
+      const validGeoJson =
+        geoJson &&
+        typeof geoJson === "object" &&
+        !Array.isArray(geoJson) &&
+        geoJson.type === "FeatureCollection" &&
+        Array.isArray(geoJson.features) &&
+        geoJson.features.length > 0;
+
+      if (!validGeoJson) {
+        console.error(
+          `Local conversion returned empty or invalid GeoJSON for ${fileName}; existing S3 object was not overwritten`,
+          geoJson,
+        );
+        return;
+      }
+
+      console.log("Local GIS conversion completed", {
+        folderName,
+        fileName,
+        originalName,
+        featureCount: geoJson.features.length,
+      });
 
       uploadJSONToS3(
         "transportation/zones/" + folderName + "/" + fileName,
-        JSON.stringify(res.body),
+        JSON.stringify(geoJson),
         function (err) {
           if (err) {
-            return console.log(err);
+            console.error(`S3 upload failed for ${fileName}:`, err);
           }
         },
+      );
+    })
+    .catch((conversionError) => {
+      console.error(
+        `Local GIS conversion failed for ${fileName}:`,
+        conversionError,
       );
     });
 }

@@ -287,7 +287,9 @@ async function runWarmCache() {
     {
       name: "loadCacheSheriffEditHistory",
       fn: async () => {
-        await sheriff.readEditHistoryIntoMemory(__dirname + "/public/ruraladdress");
+        await sheriff.readEditHistoryIntoMemory(
+          __dirname + "/public/ruraladdress",
+        );
         await delay(250);
       },
     },

@@ -16,7 +16,9 @@ exports.findBooksForZone = async (req, res) => {
     return res.send(JSON.parse(result));
   } catch (error) {
     console.error("Unable to load books for zone:", zone_num, error);
-    return res.status(500).json({ error: true, msg: "Unable to load zone books" });
+    return res
+      .status(500)
+      .json({ error: true, msg: "Unable to load zone books" });
   }
 };
 

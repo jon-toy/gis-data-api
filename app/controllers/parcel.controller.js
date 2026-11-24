@@ -51,7 +51,11 @@ exports.findOneParcelByAccountNumber = async (req, res) => {
       res.send(augmented);
     });
   } catch (error) {
-    console.error("Unable to load parcel by account number:", account_num, error);
+    console.error(
+      "Unable to load parcel by account number:",
+      account_num,
+      error,
+    );
     return res.status(500).json({ error: true, msg: "Unable to load parcel" });
   }
 };
